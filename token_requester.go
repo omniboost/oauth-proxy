@@ -3,10 +3,10 @@ package oauthproxy
 import (
 	"context"
 	"database/sql"
-	"log"
 
 	"bitbucket.org/tim_online/oauth-proxy/db"
 	"bitbucket.org/tim_online/oauth-proxy/providers"
+	"github.com/xo/xoutil"
 	"golang.org/x/oauth2"
 )
 
@@ -18,9 +18,12 @@ func NewTokenRequester(db *sql.DB, provider providers.Provider) *TokenRequester 
 	// ctx, cancel := context.WithCancel(ctx)
 
 	return &TokenRequester{
-		db:       db,
-		provider: provider,
-		ctx:      ctx,
+		db:         db,
+		provider:   provider,
+		requests:   make(chan providers.TokenRequestParams),
+		ctx:        ctx,
+		tokenChans: []chan *oauth2.Token{},
+		errChans:   []chan error{},
 	}
 }
 
@@ -40,11 +43,23 @@ func (tr *TokenRequester) Start() {
 func (tr *TokenRequester) Listen() {
 	for {
 		select {
-		case <-tr.requests:
-			// If we receive a message after 2 seconds
-			// that means the request has been processed
-			// We then write this as the response
-			log.Println("Request received")
+		case params := <-tr.requests:
+			// received the request, maybe there are more in the queue
+			token, err := tr.RetrieveNewToken(params)
+
+			// send result to every request in the queue
+			for _, ch := range tr.tokenChans {
+				ch <- token
+			}
+			tr.tokenChans = []chan *oauth2.Token{}
+
+			// Send error to all channels
+			for _, ch := range tr.errChans {
+				ch <- err
+			}
+
+			// Clean channels
+			tr.errChans = []chan error{}
 		case <-tr.ctx.Done():
 			return
 		}
@@ -56,16 +71,30 @@ func (tr *TokenRequester) Stop() {
 }
 
 func (tr *TokenRequester) Request(params providers.TokenRequestParams) (*oauth2.Token, error) {
-	dbToken, err := db.OauthTokenByAppClientIDClientSecretRefreshToken(tr.db, tr.provider.Name(),
+	dbToken, err := db.OauthTokenByAppClientIDClientSecretOriginalRefreshToken(tr.db, tr.provider.Name(),
 		params.ClientID, params.ClientSecret, params.RefreshToken)
 	if err == sql.ErrNoRows {
 		// no results in db: request new token
-		tokenChan, errChan := tr.AddRequest(params)
+		token, err := tr.FetchNewToken(params)
+		if err != nil {
+			return token, err
+		}
 
-		// block on both channels
-		token := <-tokenChan
-		err := <-errChan
-		return token, err
+		dbToken = &db.OauthToken{
+			App:                  tr.provider.Name(),
+			Type:                 token.Type(),
+			ClientID:             params.ClientID,
+			ClientSecret:         params.ClientSecret,
+			OriginalRefreshToken: params.RefreshToken,
+			RefreshToken:         token.RefreshToken,
+			AccessToken:          token.AccessToken,
+			ExpiresAt:            xoutil.SqTime{token.Expiry},
+		}
+		err = dbToken.Save(tr.db)
+		if err != nil {
+			return token, err
+		}
+
 	} else if err != nil {
 		// error requesting token from db
 		return nil, err
@@ -85,10 +114,10 @@ func (tr *TokenRequester) Request(params providers.TokenRequestParams) (*oauth2.
 	}
 
 	// token is not valid anymore
-	tokenChan, errChan := tr.AddRequest(params)
-	// block on both channels
-	token = <-tokenChan
-	err = <-errChan
+	token, err = tr.FetchNewToken(params)
+	if err != nil {
+		return token, err
+	}
 	return token, err
 }
 
@@ -99,4 +128,24 @@ func (tr *TokenRequester) AddRequest(params providers.TokenRequestParams) (chan 
 	errChan := make(chan error, 1)
 	tr.errChans = append(tr.errChans, errChan)
 	return tokenChan, errChan
+}
+
+func (tr *TokenRequester) RetrieveNewToken(params providers.TokenRequestParams) (*oauth2.Token, error) {
+	// retrieve new token
+	tokenSource := tr.provider.TokenSource(oauth2.NoContext, params)
+	return tokenSource.Token()
+}
+
+func (tr *TokenRequester) FetchNewToken(params providers.TokenRequestParams) (*oauth2.Token, error) {
+	tokenChan, errChan := tr.AddRequest(params)
+
+	// block on both channels
+	token := <-tokenChan
+	// @TODO: should the close be done here?
+	close(tokenChan)
+	err := <-errChan
+	// @TODO: should the close be done here?
+	close(errChan)
+
+	return token, err
 }

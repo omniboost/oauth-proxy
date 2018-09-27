@@ -23,14 +23,19 @@ import (
 func NewServer() (*Server, error) {
 	s := &Server{}
 
-	s.SetProviders(s.NewProviders())
-	s.SetHTTP(s.NewHTTP())
-	s.SetRouter(s.NewRouter())
 	db, err := s.NewDB()
 	if err != nil {
 		return s, err
 	}
 	s.SetDB(db)
+
+	s.SetHTTP(s.NewHTTP())
+
+	// providers depends on db
+	s.SetProviders(s.NewProviders())
+
+	// router depends on providers
+	s.SetRouter(s.NewRouter())
 
 	return s, nil
 }

@@ -11,16 +11,17 @@ import (
 
 // OauthToken represents a row from 'oauth_tokens'.
 type OauthToken struct {
-	ID           int           `json:"id"`            // id
-	App          string        `json:"app"`           // app
-	Type         string        `json:"type"`          // type
-	ClientID     string        `json:"client_id"`     // client_id
-	ClientSecret string        `json:"client_secret"` // client_secret
-	RefreshToken string        `json:"refresh_token"` // refresh_token
-	AccessToken  string        `json:"access_token"`  // access_token
-	ExpiresAt    xoutil.SqTime `json:"expires_at"`    // expires_at
-	CreatedAt    xoutil.SqTime `json:"created_at"`    // created_at
-	UpdatedAt    xoutil.SqTime `json:"updated_at"`    // updated_at
+	ID                   int           `json:"id"`                     // id
+	App                  string        `json:"app"`                    // app
+	Type                 string        `json:"type"`                   // type
+	ClientID             string        `json:"client_id"`              // client_id
+	ClientSecret         string        `json:"client_secret"`          // client_secret
+	OriginalRefreshToken string        `json:"original_refresh_token"` // original_refresh_token
+	RefreshToken         string        `json:"refresh_token"`          // refresh_token
+	AccessToken          string        `json:"access_token"`           // access_token
+	ExpiresAt            xoutil.SqTime `json:"expires_at"`             // expires_at
+	CreatedAt            xoutil.SqTime `json:"created_at"`             // created_at
+	UpdatedAt            xoutil.SqTime `json:"updated_at"`             // updated_at
 
 	// xo fields
 	_exists, _deleted bool
@@ -47,14 +48,14 @@ func (ot *OauthToken) Insert(db XODB) error {
 
 	// sql insert query, primary key provided by autoincrement
 	const sqlstr = `INSERT INTO oauth_tokens (` +
-		`app, type, client_id, client_secret, refresh_token, access_token, expires_at, created_at, updated_at` +
+		`app, type, client_id, client_secret, original_refresh_token, refresh_token, access_token, expires_at, created_at, updated_at` +
 		`) VALUES (` +
-		`?, ?, ?, ?, ?, ?, ?, ?, ?` +
+		`?, ?, ?, ?, ?, ?, ?, ?, ?, ?` +
 		`)`
 
 	// run query
-	XOLog(sqlstr, ot.App, ot.Type, ot.ClientID, ot.ClientSecret, ot.RefreshToken, ot.AccessToken, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt)
-	res, err := db.Exec(sqlstr, ot.App, ot.Type, ot.ClientID, ot.ClientSecret, ot.RefreshToken, ot.AccessToken, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt)
+	XOLog(sqlstr, ot.App, ot.Type, ot.ClientID, ot.ClientSecret, ot.OriginalRefreshToken, ot.RefreshToken, ot.AccessToken, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt)
+	res, err := db.Exec(sqlstr, ot.App, ot.Type, ot.ClientID, ot.ClientSecret, ot.OriginalRefreshToken, ot.RefreshToken, ot.AccessToken, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt)
 	if err != nil {
 		return err
 	}
@@ -88,12 +89,12 @@ func (ot *OauthToken) Update(db XODB) error {
 
 	// sql query
 	const sqlstr = `UPDATE oauth_tokens SET ` +
-		`app = ?, type = ?, client_id = ?, client_secret = ?, refresh_token = ?, access_token = ?, expires_at = ?, created_at = ?, updated_at = ?` +
+		`app = ?, type = ?, client_id = ?, client_secret = ?, original_refresh_token = ?, refresh_token = ?, access_token = ?, expires_at = ?, created_at = ?, updated_at = ?` +
 		` WHERE id = ?`
 
 	// run query
-	XOLog(sqlstr, ot.App, ot.Type, ot.ClientID, ot.ClientSecret, ot.RefreshToken, ot.AccessToken, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt, ot.ID)
-	_, err = db.Exec(sqlstr, ot.App, ot.Type, ot.ClientID, ot.ClientSecret, ot.RefreshToken, ot.AccessToken, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt, ot.ID)
+	XOLog(sqlstr, ot.App, ot.Type, ot.ClientID, ot.ClientSecret, ot.OriginalRefreshToken, ot.RefreshToken, ot.AccessToken, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt, ot.ID)
+	_, err = db.Exec(sqlstr, ot.App, ot.Type, ot.ClientID, ot.ClientSecret, ot.OriginalRefreshToken, ot.RefreshToken, ot.AccessToken, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt, ot.ID)
 	return err
 }
 
@@ -144,7 +145,7 @@ func OauthTokenByID(db XODB, id int) (*OauthToken, error) {
 
 	// sql query
 	const sqlstr = `SELECT ` +
-		`id, app, type, client_id, client_secret, refresh_token, access_token, expires_at, created_at, updated_at ` +
+		`id, app, type, client_id, client_secret, original_refresh_token, refresh_token, access_token, expires_at, created_at, updated_at ` +
 		`FROM oauth_tokens ` +
 		`WHERE id = ?`
 
@@ -154,7 +155,7 @@ func OauthTokenByID(db XODB, id int) (*OauthToken, error) {
 		_exists: true,
 	}
 
-	err = db.QueryRow(sqlstr, id).Scan(&ot.ID, &ot.App, &ot.Type, &ot.ClientID, &ot.ClientSecret, &ot.RefreshToken, &ot.AccessToken, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt)
+	err = db.QueryRow(sqlstr, id).Scan(&ot.ID, &ot.App, &ot.Type, &ot.ClientID, &ot.ClientSecret, &ot.OriginalRefreshToken, &ot.RefreshToken, &ot.AccessToken, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -162,25 +163,25 @@ func OauthTokenByID(db XODB, id int) (*OauthToken, error) {
 	return &ot, nil
 }
 
-// OauthTokenByAppClientIDClientSecretRefreshToken retrieves a row from 'oauth_tokens' as a OauthToken.
+// OauthTokenByAppClientIDClientSecretOriginalRefreshToken retrieves a row from 'oauth_tokens' as a OauthToken.
 //
-// Generated from index 'ot_app_client_id_client_secret_refresh_token'.
-func OauthTokenByAppClientIDClientSecretRefreshToken(db XODB, app string, clientID string, clientSecret string, refreshToken string) (*OauthToken, error) {
+// Generated from index 'ot_app_client_id_client_secret_original_refresh_token'.
+func OauthTokenByAppClientIDClientSecretOriginalRefreshToken(db XODB, app string, clientID string, clientSecret string, originalRefreshToken string) (*OauthToken, error) {
 	var err error
 
 	// sql query
 	const sqlstr = `SELECT ` +
-		`id, app, type, client_id, client_secret, refresh_token, access_token, expires_at, created_at, updated_at ` +
+		`id, app, type, client_id, client_secret, original_refresh_token, refresh_token, access_token, expires_at, created_at, updated_at ` +
 		`FROM oauth_tokens ` +
-		`WHERE app = ? AND client_id = ? AND client_secret = ? AND refresh_token = ?`
+		`WHERE app = ? AND client_id = ? AND client_secret = ? AND original_refresh_token = ?`
 
 	// run query
-	XOLog(sqlstr, app, clientID, clientSecret, refreshToken)
+	XOLog(sqlstr, app, clientID, clientSecret, originalRefreshToken)
 	ot := OauthToken{
 		_exists: true,
 	}
 
-	err = db.QueryRow(sqlstr, app, clientID, clientSecret, refreshToken).Scan(&ot.ID, &ot.App, &ot.Type, &ot.ClientID, &ot.ClientSecret, &ot.RefreshToken, &ot.AccessToken, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt)
+	err = db.QueryRow(sqlstr, app, clientID, clientSecret, originalRefreshToken).Scan(&ot.ID, &ot.App, &ot.Type, &ot.ClientID, &ot.ClientSecret, &ot.OriginalRefreshToken, &ot.RefreshToken, &ot.AccessToken, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
