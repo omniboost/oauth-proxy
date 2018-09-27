@@ -2,6 +2,7 @@ package oauthproxy
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,26 +15,34 @@ import (
 
 	"bitbucket.org/tim_online/oauth-proxy/providers"
 	"github.com/gorilla/mux"
+	"github.com/pkg/errors"
+	"github.com/xo/dburl"
 	"golang.org/x/oauth2"
 )
 
-func NewServer() *Server {
-	s := &Server{
-		router:    nil,
-		http:      nil,
-		providers: providers.Load(),
-	}
+func NewServer() (*Server, error) {
+	s := &Server{}
+
+	s.SetProviders(s.NewProviders())
 	s.SetHTTP(s.NewHTTP())
 	s.SetRouter(s.NewRouter())
-	return s
+	db, err := s.NewDB()
+	if err != nil {
+		return s, err
+	}
+	s.SetDB(db)
+
+	return s, nil
 }
 
 type Server struct {
 	port int
 
-	router    *mux.Router
-	http      *http.Server
-	providers providers.Providers
+	router          *mux.Router
+	http            *http.Server
+	db              *sql.DB
+	providers       providers.Providers
+	tokenRequesters map[string]*TokenRequester
 }
 
 func (s *Server) NewHTTP() *http.Server {
@@ -49,6 +58,21 @@ func (s *Server) NewHTTP() *http.Server {
 
 func (s *Server) SetHTTP(http *http.Server) {
 	s.http = http
+}
+
+func (s *Server) NewProviders() providers.Providers {
+	return providers.Load()
+}
+
+func (s *Server) SetProviders(providers providers.Providers) {
+	s.providers = providers
+
+	s.tokenRequesters = map[string]*TokenRequester{}
+	for _, provider := range providers {
+		tr := NewTokenRequester(s.db, provider)
+		s.tokenRequesters[provider.Name()] = tr
+		tr.Start()
+	}
 }
 
 func (s *Server) NewRouter() *mux.Router {
@@ -73,6 +97,14 @@ func (s *Server) SetPort(port int) {
 
 func (s *Server) Addr() string {
 	return fmt.Sprintf("0.0.0.0:%d", s.port)
+}
+
+func (s *Server) NewDB() (*sql.DB, error) {
+	return dburl.Open("sqlite://db/production.sqlite3?loc=auto")
+}
+
+func (s *Server) SetDB(db *sql.DB) {
+	s.db = db
 }
 
 func (s *Server) Start() error {
@@ -117,12 +149,19 @@ func (s *Server) Stop() error {
 	// Create a deadline to wait for.
 	ctx, cancel := context.WithTimeout(context.Background(), wait)
 	defer cancel()
+
 	// Doesn't block if no connections, but will otherwise wait
 	// until the timeout deadline.
-	s.http.Shutdown(ctx)
+	// s.http.Shutdown(ctx)
+
 	// Optionally, you could run srv.Shutdown in a goroutine and block on
 	// <-ctx.Done() if your application should wait for other services
 	// to finalize based on context cancellation.
+	go s.http.Shutdown(ctx)
+	for _, tr := range s.tokenRequesters {
+		tr.Stop()
+	}
+	<-ctx.Done()
 	return nil
 }
 
@@ -149,7 +188,8 @@ func (s *Server) NewProviderHandler(provider providers.Provider) http.HandlerFun
 		reqBody := TokenRequestBody{}
 		err := decoder.Decode(&reqBody)
 		if err != nil && err != io.EOF {
-			log.Fatal(err)
+			s.ErrorResponse(w, err)
+			return
 		}
 
 		// use reqBody.RefreshToken, reqBody.ClientID & reqBody.ClientSecret to
@@ -168,9 +208,7 @@ func (s *Server) NewProviderHandler(provider providers.Provider) http.HandlerFun
 			RefreshToken: reqBody.RefreshToken,
 		}
 
-		// retrieve new token
-		tokenSource := provider.TokenSource(oauth2.NoContext, trp)
-		token, err := tokenSource.Token()
+		token, err := s.RequestToken(provider, trp)
 		if err != nil {
 			s.ErrorResponse(w, err)
 			return
@@ -206,4 +244,15 @@ func (s *Server) ErrorResponse(w http.ResponseWriter, err error) {
 
 	encoder := json.NewEncoder(w)
 	encoder.Encode(errorResponse)
+}
+
+func (s *Server) RequestToken(provider providers.Provider, params providers.TokenRequestParams) (*oauth2.Token, error) {
+	tr, ok := s.tokenRequesters[provider.Name()]
+	if !ok {
+		// this should not happen because all tokenrequesters are loaded when
+		// Server.SetProviders() is called
+		return nil, errors.Errorf("Token requester for provider %s doesn't exist", provider.Name())
+	}
+
+	return tr.Request(params)
 }

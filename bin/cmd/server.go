@@ -17,7 +17,11 @@ var serverCmd = &cobra.Command{
 			return err
 		}
 
-		s := oauthproxy.NewServer()
+		s, err := oauthproxy.NewServer()
+		if err != nil {
+			return err
+		}
+
 		port := viper.GetInt("port")
 		s.SetPort(port)
 		s.Start()

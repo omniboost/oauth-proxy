@@ -10,6 +10,7 @@ import (
 type Providers []Provider
 
 type Provider interface {
+	Name() string
 	Route() string
 	// OauthConfig() oauth2.Config
 	TokenSource(context.Context, TokenRequestParams) oauth2.TokenSource

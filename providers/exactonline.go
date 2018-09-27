@@ -26,6 +26,10 @@ func (eo ExactOnline) WithBaseURL(url url.URL) ExactOnline {
 	return eo
 }
 
+func (eo ExactOnline) Name() string {
+	return eo.name
+}
+
 func (eo ExactOnline) Route() string {
 	// "/exactonline.nl/api/oauth2/token"
 	return "/" + eo.name + "/api/oauth2/token"

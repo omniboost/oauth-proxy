@@ -1,3 +1,4 @@
 /vendor/
 /oauth-proxy
 /oauth-proxy.exe
+/db/production.sqlite3
