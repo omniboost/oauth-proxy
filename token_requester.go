@@ -3,6 +3,8 @@ package oauthproxy
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"log"
 
 	"bitbucket.org/tim_online/oauth-proxy/db"
 	"bitbucket.org/tim_online/oauth-proxy/providers"
@@ -18,22 +20,20 @@ func NewTokenRequester(db *sql.DB, provider providers.Provider) *TokenRequester 
 	// ctx, cancel := context.WithCancel(ctx)
 
 	return &TokenRequester{
-		db:         db,
-		provider:   provider,
-		requests:   make(chan providers.TokenRequestParams),
-		ctx:        ctx,
-		tokenChans: []chan *oauth2.Token{},
-		errChans:   []chan error{},
+		db:       db,
+		provider: provider,
+		requests: make(chan TokenRequest, 2),
+		ctx:      ctx,
+		// tokenChans: []chan *oauth2.Token{},
+		// errChans:   []chan error{},
 	}
 }
 
 type TokenRequester struct {
-	db         *sql.DB
-	provider   providers.Provider
-	requests   chan providers.TokenRequestParams
-	tokenChans []chan *oauth2.Token
-	errChans   []chan error
-	ctx        context.Context
+	db       *sql.DB
+	provider providers.Provider
+	requests chan TokenRequest
+	ctx      context.Context
 }
 
 func (tr *TokenRequester) Start() {
@@ -41,29 +41,90 @@ func (tr *TokenRequester) Start() {
 }
 
 func (tr *TokenRequester) Listen() {
+	var token *oauth2.Token
+	var err error
+
+	handleResults := func(request TokenRequest, token *oauth2.Token, err error) {
+		log.Println("handleresult")
+		result := TokenRequestResult{
+			token: token,
+			err:   err,
+		}
+		log.Println("HIEROOO")
+		request.result <- result
+	}
+
 	for {
+		fmt.Println("foooooooooooooooooooooor")
 		select {
-		case params := <-tr.requests:
-			// received the request, maybe there are more in the queue
-			token, err := tr.RetrieveNewToken(params)
+		case request := <-tr.requests:
+			fmt.Println("new request")
+			params := request.params
+			if token == nil {
+				token, err = tr.TokenFromDB(params)
+				fmt.Println("2")
+				if err == sql.ErrNoRows {
+					// no results in db: request new token
+					token, err = tr.FetchNewToken(params)
+					fmt.Println("3")
+					if err != nil {
+						handleResults(request, token, err)
+						return
+					}
 
-			// send result to every request in the queue
-			for _, ch := range tr.tokenChans {
-				ch <- token
+					err = tr.SaveToken(token, params)
+					fmt.Println("4")
+					if err != nil {
+						handleResults(request, token, err)
+						return
+					}
+
+					// have token and is saved: continue flow
+				} else if err != nil {
+					// error requesting token from db
+					fmt.Println("6")
+					handleResults(request, token, err)
+					return
+				}
 			}
-			tr.tokenChans = []chan *oauth2.Token{}
 
-			// Send error to all channels
-			for _, ch := range tr.errChans {
-				ch <- err
+			fmt.Println("7")
+			log.Printf("%+v", token)
+			// existing token, check if still valid
+			if token.Valid() {
+				handleResults(request, token, nil)
+				return
 			}
 
-			// Clean channels
-			tr.errChans = []chan error{}
+			fmt.Println("8")
+			token, err = tr.FetchNewToken(params)
+			if err != nil {
+				handleResults(request, token, err)
+				return
+			}
+
+			fmt.Println("9")
+			err = tr.SaveToken(token, params)
+			if err != nil {
+				handleResults(request, token, err)
+				return
+			}
+
+			fmt.Println("10")
+			// existing token, not valid
+			handleResults(request, token, err)
+			return
+
 		case <-tr.ctx.Done():
+			fmt.Println("done")
+			return
+		default:
+			fmt.Println("default")
 			return
 		}
 	}
+
+	log.Println("ENNDDD")
 }
 
 func (tr *TokenRequester) Stop() {
@@ -71,81 +132,71 @@ func (tr *TokenRequester) Stop() {
 }
 
 func (tr *TokenRequester) Request(params providers.TokenRequestParams) (*oauth2.Token, error) {
-	dbToken, err := db.OauthTokenByAppClientIDClientSecretOriginalRefreshToken(tr.db, tr.provider.Name(),
-		params.ClientID, params.ClientSecret, params.RefreshToken)
-	if err == sql.ErrNoRows {
-		// no results in db: request new token
-		token, err := tr.FetchNewToken(params)
-		if err != nil {
-			return token, err
-		}
+	request := tr.NewTokenRequest(params)
+	log.Println("AAAA")
+	log.Println(len(tr.requests))
+	tr.requests <- request
+	log.Println("BBBBB")
 
-		dbToken = &db.OauthToken{
-			App:                  tr.provider.Name(),
-			Type:                 token.Type(),
-			ClientID:             params.ClientID,
-			ClientSecret:         params.ClientSecret,
-			OriginalRefreshToken: params.RefreshToken,
-			RefreshToken:         token.RefreshToken,
-			AccessToken:          token.AccessToken,
-			ExpiresAt:            xoutil.SqTime{token.Expiry},
-		}
-		err = dbToken.Save(tr.db)
-		if err != nil {
-			return token, err
-		}
-
-	} else if err != nil {
-		// error requesting token from db
-		return nil, err
-	}
-
-	// no error, retrieved token from database
-	token := &oauth2.Token{
-		AccessToken:  dbToken.AccessToken,
-		RefreshToken: dbToken.RefreshToken,
-		TokenType:    dbToken.Type,
-		Expiry:       dbToken.ExpiresAt.Time,
-	}
-
-	// check if token is still valid
-	if token.Valid() {
-		return token, nil
-	}
-
-	// token is not valid anymore
-	token, err = tr.FetchNewToken(params)
-	if err != nil {
-		return token, err
-	}
-	return token, err
+	// block on both channels
+	result := <-request.result
+	// close(request.result)
+	return result.token, result.err
 }
 
-func (tr *TokenRequester) AddRequest(params providers.TokenRequestParams) (chan *oauth2.Token, chan error) {
-	tr.requests <- params
-	tokenChan := make(chan *oauth2.Token, 1)
-	tr.tokenChans = append(tr.tokenChans, tokenChan)
-	errChan := make(chan error, 1)
-	tr.errChans = append(tr.errChans, errChan)
-	return tokenChan, errChan
+func (tr *TokenRequester) NewTokenRequest(params providers.TokenRequestParams) TokenRequest {
+	return TokenRequest{
+		params: params,
+		result: make(chan TokenRequestResult, 1),
+	}
 }
 
-func (tr *TokenRequester) RetrieveNewToken(params providers.TokenRequestParams) (*oauth2.Token, error) {
+func (tr *TokenRequester) FetchNewToken(params providers.TokenRequestParams) (*oauth2.Token, error) {
 	// retrieve new token
 	tokenSource := tr.provider.TokenSource(oauth2.NoContext, params)
 	return tokenSource.Token()
 }
 
-func (tr *TokenRequester) FetchNewToken(params providers.TokenRequestParams) (*oauth2.Token, error) {
-	tokenChan, errChan := tr.AddRequest(params)
+func (tr *TokenRequester) TokenFromDB(params providers.TokenRequestParams) (*oauth2.Token, error) {
+	dbToken, err := db.OauthTokenByAppClientIDClientSecretOriginalRefreshToken(tr.db, tr.provider.Name(), params.ClientID, params.ClientSecret, params.RefreshToken)
+	if err != nil {
+		return nil, err
+	}
 
-	// block on both channels
-	token := <-tokenChan
-	// @TODO: should the close be done here?
-	close(tokenChan)
-	err := <-errChan
-	// @TODO: should the close be done here?
-	close(errChan)
+	token := &oauth2.Token{
+		TokenType:    dbToken.Type,
+		AccessToken:  dbToken.AccessToken,
+		RefreshToken: dbToken.RefreshToken,
+		Expiry:       dbToken.ExpiresAt.Time,
+	}
+	return token, nil
+}
 
-	return token, err
+func (tr *TokenRequester) SaveToken(token *oauth2.Token, params providers.TokenRequestParams) error {
+	dbToken, err := db.OauthTokenByAppClientIDClientSecretOriginalRefreshToken(tr.db, tr.provider.Name(), params.ClientID, params.ClientSecret, params.RefreshToken)
+	if err != nil {
+		return err
+	}
+
+	dbToken.App = tr.provider.Name()
+	dbToken.Type = token.Type()
+	dbToken.ClientID = params.ClientID
+	dbToken.ClientSecret = params.ClientSecret
+	dbToken.OriginalRefreshToken = params.RefreshToken
+	dbToken.RefreshToken = token.RefreshToken
+	dbToken.AccessToken = token.AccessToken
+	dbToken.ExpiresAt = xoutil.SqTime{token.Expiry}
+	dbToken.CreatedAt = dbToken.CreatedAt
+	dbToken.UpdatedAt = dbToken.UpdatedAt
+	return dbToken.Save(tr.db)
+}
+
+type TokenRequest struct {
+	params providers.TokenRequestParams
+	result chan TokenRequestResult
+}
+
+type TokenRequestResult struct {
+	token *oauth2.Token
+	err   error
 }
