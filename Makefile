@@ -1,6 +1,12 @@
 # go source files, ignore vendor directory
 GO_SRC = $(shell find ${MKFILE_PATH} -type f -name '*.go' -not -path "./vendor/*")
-CURRENT_DIR=$(shell pwd)
+# CURRENT_DIR=$(shell pwd)
+
+# ifeq ($(OS),Windows_NT)
+#     detected_OS := Windows
+# else
+#     detected_OS := $(shell uname -s)
+# endif
 
 .DEFAULT_GOAL := build
 
@@ -8,12 +14,12 @@ vendor: Gopkg.toml Gopkg.lock
 	dep ensure
 
 .PHONY: build
-build: sms sms.exe
+build: oauth-proxy oauth-proxy.exe
 
-oauth-proxy: ${CURRENT_DIR} vendor ${CURRENT_DIR}
+oauth-proxy: ${GO_SRC} vendor
 	go build -o oauth-proxy ./cmd
 
-oauth-proxy.exe: ${CURRENT_DIR} vendor ${CURRENT_DIR}
+oauth-proxy.exe: ${GO_SRC} vendor
 	GOOS=windows go build -o oauth-proxy.exe ./cmd
 
 .PHONY: test
