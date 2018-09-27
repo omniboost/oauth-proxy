@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
+	"time"
 
 	"bitbucket.org/tim_online/oauth-proxy/db"
 	"bitbucket.org/tim_online/oauth-proxy/providers"
@@ -65,7 +65,6 @@ func (tr *TokenRequester) Listen() {
 					token, err = tr.FetchNewToken(params)
 					if err != nil {
 						// something went wrong fetching new token
-						log.Println("1")
 						handleResults(request, token, err)
 						continue
 					}
@@ -73,7 +72,6 @@ func (tr *TokenRequester) Listen() {
 					err = tr.SaveToken(token, params)
 					if err != nil {
 						// something went wrong when saving new token
-						log.Println("2")
 						handleResults(request, token, err)
 						continue
 					}
@@ -81,7 +79,6 @@ func (tr *TokenRequester) Listen() {
 					// have token and is saved: continue flow
 				} else if err != nil {
 					// error requesting token from db
-					log.Println("3")
 					handleResults(request, token, err)
 					continue
 				}
@@ -89,27 +86,25 @@ func (tr *TokenRequester) Listen() {
 
 			// existing token, check if still valid
 			if token.Valid() {
-				log.Println("4")
+				// token is valid, use that
 				handleResults(request, token, nil)
 				continue
 			}
 
+			// token isn't valid anymore, fetch new token and save it
 			token, err = tr.FetchNewToken(params)
 			if err != nil {
-				log.Println("5")
 				handleResults(request, token, err)
 				continue
 			}
 
 			err = tr.SaveToken(token, params)
 			if err != nil {
-				log.Println("6")
 				handleResults(request, token, err)
 				continue
 			}
 
 			// existing token, not valid
-			log.Println("7")
 			handleResults(request, token, nil)
 		case <-tr.ctx.Done():
 			fmt.Println("done")
@@ -164,10 +159,14 @@ func (tr *TokenRequester) TokenFromDB(params providers.TokenRequestParams) (*oau
 }
 
 func (tr *TokenRequester) SaveToken(token *oauth2.Token, params providers.TokenRequestParams) error {
+	// @TODO: How to handle this better?
+	// - remove the checking of ErrNoRows
 	dbToken, err := db.OauthTokenByAppClientIDClientSecretOriginalRefreshToken(tr.db, tr.provider.Name(), params.ClientID, params.ClientSecret, params.RefreshToken)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			dbToken = &db.OauthToken{}
+			dbToken = &db.OauthToken{
+				CreatedAt: xoutil.SqTime{time.Now()},
+			}
 		} else {
 			return err
 		}
@@ -181,8 +180,8 @@ func (tr *TokenRequester) SaveToken(token *oauth2.Token, params providers.TokenR
 	dbToken.RefreshToken = token.RefreshToken
 	dbToken.AccessToken = token.AccessToken
 	dbToken.ExpiresAt = xoutil.SqTime{token.Expiry}
-	dbToken.CreatedAt = dbToken.CreatedAt
-	dbToken.UpdatedAt = dbToken.UpdatedAt
+	// dbToken.CreatedAt = dbToken.CreatedAt
+	dbToken.UpdatedAt = xoutil.SqTime{time.Now()}
 	return dbToken.Save(tr.db)
 }
 
