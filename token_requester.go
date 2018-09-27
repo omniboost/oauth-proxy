@@ -37,94 +37,88 @@ type TokenRequester struct {
 }
 
 func (tr *TokenRequester) Start() {
-	go tr.Listen()
+	go func() {
+		tr.Listen()
+	}()
 }
 
 func (tr *TokenRequester) Listen() {
 	var token *oauth2.Token
-	var err error
 
 	handleResults := func(request TokenRequest, token *oauth2.Token, err error) {
-		log.Println("handleresult")
 		result := TokenRequestResult{
 			token: token,
 			err:   err,
 		}
-		log.Println("HIEROOO")
 		request.result <- result
 	}
 
 	for {
-		fmt.Println("foooooooooooooooooooooor")
 		select {
 		case request := <-tr.requests:
-			fmt.Println("new request")
+			var err error
 			params := request.params
 			if token == nil {
 				token, err = tr.TokenFromDB(params)
-				fmt.Println("2")
 				if err == sql.ErrNoRows {
 					// no results in db: request new token
 					token, err = tr.FetchNewToken(params)
-					fmt.Println("3")
 					if err != nil {
+						// something went wrong fetching new token
+						log.Println("1")
 						handleResults(request, token, err)
-						return
+						continue
 					}
 
 					err = tr.SaveToken(token, params)
-					fmt.Println("4")
 					if err != nil {
+						// something went wrong when saving new token
+						log.Println("2")
 						handleResults(request, token, err)
-						return
+						continue
 					}
 
 					// have token and is saved: continue flow
 				} else if err != nil {
 					// error requesting token from db
-					fmt.Println("6")
+					log.Println("3")
 					handleResults(request, token, err)
-					return
+					continue
 				}
 			}
 
-			fmt.Println("7")
-			log.Printf("%+v", token)
 			// existing token, check if still valid
 			if token.Valid() {
+				log.Println("4")
 				handleResults(request, token, nil)
-				return
+				continue
 			}
 
-			fmt.Println("8")
 			token, err = tr.FetchNewToken(params)
 			if err != nil {
+				log.Println("5")
 				handleResults(request, token, err)
-				return
+				continue
 			}
 
-			fmt.Println("9")
 			err = tr.SaveToken(token, params)
 			if err != nil {
+				log.Println("6")
 				handleResults(request, token, err)
-				return
+				continue
 			}
 
-			fmt.Println("10")
 			// existing token, not valid
-			handleResults(request, token, err)
-			return
-
+			log.Println("7")
+			handleResults(request, token, nil)
 		case <-tr.ctx.Done():
 			fmt.Println("done")
 			return
-		default:
-			fmt.Println("default")
-			return
+			// default:
+			// 	fmt.Println("default")
+			// 	return
 		}
 	}
-
-	log.Println("ENNDDD")
 }
 
 func (tr *TokenRequester) Stop() {
@@ -133,14 +127,11 @@ func (tr *TokenRequester) Stop() {
 
 func (tr *TokenRequester) Request(params providers.TokenRequestParams) (*oauth2.Token, error) {
 	request := tr.NewTokenRequest(params)
-	log.Println("AAAA")
-	log.Println(len(tr.requests))
 	tr.requests <- request
-	log.Println("BBBBB")
 
 	// block on both channels
 	result := <-request.result
-	// close(request.result)
+	close(request.result)
 	return result.token, result.err
 }
 
@@ -175,7 +166,11 @@ func (tr *TokenRequester) TokenFromDB(params providers.TokenRequestParams) (*oau
 func (tr *TokenRequester) SaveToken(token *oauth2.Token, params providers.TokenRequestParams) error {
 	dbToken, err := db.OauthTokenByAppClientIDClientSecretOriginalRefreshToken(tr.db, tr.provider.Name(), params.ClientID, params.ClientSecret, params.RefreshToken)
 	if err != nil {
-		return err
+		if err == sql.ErrNoRows {
+			dbToken = &db.OauthToken{}
+		} else {
+			return err
+		}
 	}
 
 	dbToken.App = tr.provider.Name()
