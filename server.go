@@ -3,11 +3,15 @@ package oauthproxy
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
+	"mime"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -211,11 +215,8 @@ func (s *Server) NewProviderHandler(provider providers.Provider) http.HandlerFun
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 
-		// get oauth params from incomming request
-		decoder := json.NewDecoder(r.Body)
-		reqBody := TokenRequestBody{}
-		err := decoder.Decode(&reqBody)
-		if err != nil && err != io.EOF {
+		trp, err := s.GetTokenRequestParamsFromRequest(r)
+		if err != nil {
 			s.ErrorResponse(w, err)
 			return
 		}
@@ -229,18 +230,13 @@ func (s *Server) NewProviderHandler(provider providers.Provider) http.HandlerFun
 		// Update: can't do that because I don't have access to oauth2.Token.raw
 		// Only Token.Extra(string)
 
-		// create a tokenrequest for the provider
-		trp := providers.TokenRequestParams{
-			ClientID:     reqBody.ClientID,
-			ClientSecret: reqBody.ClientSecret,
-			RefreshToken: reqBody.RefreshToken,
-		}
-
 		token, err := s.RequestToken(provider, trp)
 		if err != nil {
 			s.ErrorResponse(w, err)
 			return
 		}
+
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 		// create response body
 		responseBody := TokenResponseBody{
@@ -283,4 +279,71 @@ func (s *Server) RequestToken(provider providers.Provider, params providers.Toke
 	}
 
 	return tr.Request(params)
+}
+
+func (s *Server) GetTokenRequestParamsFromRequest(r *http.Request) (providers.TokenRequestParams, error) {
+	// body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1<<20))
+	// if err != nil {
+	// 	return trp, fmt.Errorf("oauth2: cannot fetch token: %v", err)
+	// }
+
+	content, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	switch content {
+	case "application/x-www-form-urlencoded", "text/plain":
+		return s.GetTokenRequestParamsFromFormRequest(r)
+	default:
+		return s.GetTokenRequestParamsFromJSONRequest(r)
+	}
+}
+
+func (s *Server) GetTokenRequestParamsFromFormRequest(r *http.Request) (providers.TokenRequestParams, error) {
+	trp := providers.TokenRequestParams{}
+
+	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1<<20))
+	if err != nil {
+		return trp, err
+	}
+
+	vals, err := url.ParseQuery(string(body))
+	if err != nil {
+		return trp, err
+	}
+
+	auth := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
+
+	if len(auth) != 2 || auth[0] != "Basic" {
+		return trp, errors.New("no authorization header found")
+	}
+
+	payload, _ := base64.StdEncoding.DecodeString(auth[1])
+	pair := strings.SplitN(string(payload), ":", 2)
+
+	if len(pair) != 2 {
+		return trp, errors.New("garbled authorization header")
+	}
+
+	return providers.TokenRequestParams{
+		ClientID:     pair[0],
+		ClientSecret: pair[1],
+		RefreshToken: vals.Get("refresh_token"),
+	}, nil
+}
+
+func (s *Server) GetTokenRequestParamsFromJSONRequest(r *http.Request) (providers.TokenRequestParams, error) {
+	trp := providers.TokenRequestParams{}
+
+	// get oauth params from incoming request
+	decoder := json.NewDecoder(r.Body)
+	reqBody := TokenRequestBody{}
+	err := decoder.Decode(&reqBody)
+	if err != nil && err != io.EOF {
+		return trp, err
+	}
+
+	// create a tokenrequest for the provider
+	return providers.TokenRequestParams{
+		ClientID:     reqBody.ClientID,
+		ClientSecret: reqBody.ClientSecret,
+		RefreshToken: reqBody.RefreshToken,
+	}, nil
 }
