@@ -105,7 +105,28 @@ func (s *Server) Addr() string {
 }
 
 func (s *Server) NewDB() (*sql.DB, error) {
-	return dburl.Open("sqlite://db/production.sqlite3?loc=auto")
+	path := "db/production.sqlite3"
+	_, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		src, err := Assets.Open("empty.sqlite3")
+		if err != nil {
+			return nil, err
+		}
+		defer src.Close()
+
+		dest, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0666)
+		if err != nil {
+			return nil, err
+		}
+		defer dest.Close()
+
+		_, err = io.Copy(dest, src)
+		if err != nil {
+			return nil, err
+		}
+	}
+	url := fmt.Sprintf("sqlite://%s?loc=auto", path)
+	return dburl.Open(url)
 }
 
 func (s *Server) SetDB(db *sql.DB) {
