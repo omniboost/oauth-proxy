@@ -297,6 +297,8 @@ func (s *Server) GetTokenRequestParamsFromRequest(r *http.Request) (providers.To
 }
 
 func (s *Server) GetTokenRequestParamsFromFormRequest(r *http.Request) (providers.TokenRequestParams, error) {
+	// @TODO: add support for busted auth
+	// golang.org/x/oauth2/internal/token.go:181
 	trp := providers.TokenRequestParams{}
 
 	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1<<20))
