@@ -162,6 +162,8 @@ func (s *Server) Start() error {
 	close(signalChan)
 	close(errChan)
 
+	// When using signal to stop this generates a fatal error because the error
+	// channel is already closed
 	return s.Stop()
 }
 
