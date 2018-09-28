@@ -8,6 +8,7 @@ import (
 
 	"bitbucket.org/tim_online/oauth-proxy/db"
 	"bitbucket.org/tim_online/oauth-proxy/providers"
+	"github.com/lytics/logrus"
 	"github.com/xo/xoutil"
 	"golang.org/x/oauth2"
 )
@@ -58,53 +59,62 @@ func (tr *TokenRequester) Listen() {
 		case request := <-tr.requests:
 			var err error
 			params := request.params
+			logrus.Debugf("new token request received (%s)", params.RefreshToken)
+
 			if token == nil {
 				token, err = tr.TokenFromDB(params)
 				if err == sql.ErrNoRows {
 					// no results in db: request new token
 					token, err = tr.FetchNewToken(params)
 					if err != nil {
-						// something went wrong fetching new token
+						logrus.Errorf("something went wrong fetching new token (%s)", params.RefreshToken)
 						handleResults(request, token, err)
 						continue
 					}
 
 					err = tr.SaveToken(token, params)
 					if err != nil {
-						// something went wrong when saving new token
+						logrus.Errorf("something went wrong saving a new token to the database (%s)", params.RefreshToken)
 						handleResults(request, token, err)
 						continue
 					}
 
-					// have token and is saved: continue flow
+					logrus.Debugf("sending new token to requester (%s)", params.RefreshToken)
+					handleResults(request, token, nil)
 				} else if err != nil {
-					// error requesting token from db
+					logrus.Errorf("error retrieving token from database (%s)", params.RefreshToken)
 					handleResults(request, token, err)
 					continue
+				} else {
+					logrus.Debugf("found existing token in database (%s)", params.RefreshToken)
 				}
 			}
 
 			// existing token, check if still valid
 			if token.Valid() {
 				// token is valid, use that
+				logrus.Debugf("sending new token to requester (%s)", params.RefreshToken)
 				handleResults(request, token, nil)
 				continue
 			}
 
-			// token isn't valid anymore, fetch new token and save it
+			logrus.Debugf("token (%s) isn't valid anymore, fetching new token", params.RefreshToken)
 			token, err = tr.FetchNewToken(params)
 			if err != nil {
+				logrus.Errorf("something went wrong fetching new token (%s)", params.RefreshToken)
 				handleResults(request, token, err)
 				continue
 			}
 
 			err = tr.SaveToken(token, params)
 			if err != nil {
+				logrus.Errorf("something went wrong saving a new token to the database (%s)", params.RefreshToken)
 				handleResults(request, token, err)
 				continue
 			}
 
 			// existing token, not valid
+			logrus.Debugf("sending new token to requester (%s)", params.RefreshToken)
 			handleResults(request, token, nil)
 		case <-tr.ctx.Done():
 			fmt.Println("done")

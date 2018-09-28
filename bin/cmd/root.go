@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/lytics/logrus"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -43,6 +44,10 @@ func init() {
 	// will be global for your application.
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cmd.yaml)")
 
+	rootCmd.PersistentFlags().CountP("verbose", "v", "Verbosity (repeat for more verbose)")
+
+	cobra.OnInitialize(initLogger)
+
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
@@ -74,4 +79,26 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
+}
+
+func initLogger() {
+	verbosity, err := rootCmd.PersistentFlags().GetCount("verbose")
+	if err != nil {
+		logErrorAndExit(err)
+	}
+
+	if verbosity == 0 {
+		logrus.SetLevel(logrus.ErrorLevel)
+	} else if verbosity == 1 {
+		logrus.SetLevel(logrus.WarnLevel)
+	} else if verbosity == 2 {
+		logrus.SetLevel(logrus.InfoLevel)
+	} else {
+		logrus.SetLevel(logrus.DebugLevel)
+	}
+}
+
+func logErrorAndExit(err error) {
+	logrus.Error(err)
+	os.Exit(1)
 }
