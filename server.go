@@ -19,6 +19,7 @@ import (
 
 	"bitbucket.org/tim_online/oauth-proxy/providers"
 	"github.com/gorilla/mux"
+	"github.com/lytics/logrus"
 	"github.com/pkg/errors"
 	"github.com/xo/dburl"
 	"golang.org/x/oauth2"
@@ -257,6 +258,8 @@ func (s *Server) NewClient() *http.Client {
 }
 
 func (s *Server) ErrorResponse(w http.ResponseWriter, err error) {
+	logrus.Error(err)
+
 	w.WriteHeader(http.StatusBadRequest)
 
 	// fake original oauth token response
