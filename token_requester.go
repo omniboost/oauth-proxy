@@ -44,7 +44,8 @@ func (tr *TokenRequester) Start() {
 }
 
 func (tr *TokenRequester) Listen() {
-
+	// saving the token to a tokens map[string]*oauth2.Token based on the
+	// parameters for the db query could make it faster?
 	for {
 		select {
 		case request := <-tr.requests:
