@@ -44,8 +44,6 @@ func (tr *TokenRequester) Start() {
 }
 
 func (tr *TokenRequester) Listen() {
-	var token *oauth2.Token
-
 	handleResults := func(request TokenRequest, token *oauth2.Token, err error) {
 		result := TokenRequestResult{
 			token: token,
@@ -57,37 +55,37 @@ func (tr *TokenRequester) Listen() {
 	for {
 		select {
 		case request := <-tr.requests:
-			var err error
 			params := request.params
 			logrus.Debugf("new token request received (%s)", params.RefreshToken)
 
-			if token == nil {
-				token, err = tr.TokenFromDB(params)
-				if err == sql.ErrNoRows {
-					// no results in db: request new token
-					token, err = tr.FetchNewToken(params)
-					if err != nil {
-						logrus.Errorf("something went wrong fetching new token (%s)", params.RefreshToken)
-						handleResults(request, token, err)
-						continue
-					}
-
-					err = tr.SaveToken(token, params)
-					if err != nil {
-						logrus.Errorf("something went wrong saving a new token to the database (%s)", params.RefreshToken)
-						handleResults(request, token, err)
-						continue
-					}
-
-					logrus.Debugf("sending new token to requester (%s)", params.RefreshToken)
-					handleResults(request, token, nil)
-				} else if err != nil {
-					logrus.Errorf("error retrieving token from database (%s)", params.RefreshToken)
+			token, err := tr.TokenFromDB(params)
+			if err == sql.ErrNoRows {
+				// no results in db: request new token
+				logrus.Debugf("couldn't find original refresh token in database, requesting new token (%s)", params.RefreshToken)
+				token, err = tr.FetchNewToken(params)
+				if err != nil {
+					logrus.Errorf("something went wrong fetching new token (%s)", params.RefreshToken)
 					handleResults(request, token, err)
 					continue
-				} else {
-					logrus.Debugf("found existing token in database (%s)", params.RefreshToken)
 				}
+
+				logrus.Debugf("saving new token to database (%s)", params.RefreshToken)
+				err = tr.SaveToken(token, params)
+				if err != nil {
+					logrus.Errorf("something went wrong saving a new token to the database (%s)", params.RefreshToken)
+					handleResults(request, token, err)
+					continue
+				}
+
+				logrus.Debugf("sending new token to requester (%s)", params.RefreshToken)
+				handleResults(request, token, nil)
+				continue
+			} else if err != nil {
+				logrus.Errorf("error retrieving token from database (%s)", params.RefreshToken)
+				handleResults(request, token, err)
+				continue
+			} else {
+				logrus.Debugf("found existing token in database (%s)", params.RefreshToken)
 			}
 
 			// existing token, check if still valid
@@ -106,6 +104,7 @@ func (tr *TokenRequester) Listen() {
 				continue
 			}
 
+			logrus.Debugf("saving updated token to database (%s)", params.RefreshToken)
 			err = tr.SaveToken(token, params)
 			if err != nil {
 				logrus.Errorf("something went wrong saving a new token to the database (%s)", params.RefreshToken)
