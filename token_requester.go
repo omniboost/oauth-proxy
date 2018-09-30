@@ -44,13 +44,6 @@ func (tr *TokenRequester) Start() {
 }
 
 func (tr *TokenRequester) Listen() {
-	handleResults := func(request TokenRequest, token *oauth2.Token, err error) {
-		result := TokenRequestResult{
-			token: token,
-			err:   err,
-		}
-		request.result <- result
-	}
 
 	for {
 		select {
@@ -62,27 +55,18 @@ func (tr *TokenRequester) Listen() {
 			if err == sql.ErrNoRows {
 				// no results in db: request new token
 				logrus.Debugf("couldn't find original refresh token in database, requesting new token (%s)", params.RefreshToken)
-				token, err = tr.FetchNewToken(params)
+				token, err := tr.fetchAndSaveNewToken(params)
 				if err != nil {
-					logrus.Errorf("something went wrong fetching new token (%s)", params.RefreshToken)
-					handleResults(request, token, err)
-					continue
-				}
-
-				logrus.Debugf("saving new token to database (%s)", params.RefreshToken)
-				err = tr.SaveToken(token, params)
-				if err != nil {
-					logrus.Errorf("something went wrong saving a new token to the database (%s)", params.RefreshToken)
-					handleResults(request, token, err)
+					tr.handleResults(request, nil, err)
 					continue
 				}
 
 				logrus.Debugf("sending new token to requester (%s)", params.RefreshToken)
-				handleResults(request, token, nil)
+				tr.handleResults(request, token, nil)
 				continue
 			} else if err != nil {
 				logrus.Errorf("error retrieving token from database (%s)", params.RefreshToken)
-				handleResults(request, token, err)
+				tr.handleResults(request, nil, err)
 				continue
 			} else {
 				logrus.Debugf("found existing token in database (%s)", params.RefreshToken)
@@ -92,29 +76,20 @@ func (tr *TokenRequester) Listen() {
 			if token.Valid() {
 				// token is valid, use that
 				logrus.Debugf("sending new token to requester (%s)", params.RefreshToken)
-				handleResults(request, token, nil)
+				tr.handleResults(request, token, nil)
 				continue
 			}
 
 			logrus.Debugf("token (%s) isn't valid anymore, fetching new token", params.RefreshToken)
-			token, err = tr.FetchNewToken(params)
+			token, err = tr.fetchAndSaveNewToken(params)
 			if err != nil {
-				logrus.Errorf("something went wrong fetching new token (%s)", params.RefreshToken)
-				handleResults(request, token, err)
-				continue
-			}
-
-			logrus.Debugf("saving updated token to database (%s)", params.RefreshToken)
-			err = tr.SaveToken(token, params)
-			if err != nil {
-				logrus.Errorf("something went wrong saving a new token to the database (%s)", params.RefreshToken)
-				handleResults(request, token, err)
+				tr.handleResults(request, nil, err)
 				continue
 			}
 
 			// existing token, not valid
 			logrus.Debugf("sending new token to requester (%s)", params.RefreshToken)
-			handleResults(request, token, nil)
+			tr.handleResults(request, token, nil)
 		case <-tr.ctx.Done():
 			fmt.Println("done")
 			return
@@ -192,6 +167,31 @@ func (tr *TokenRequester) SaveToken(token *oauth2.Token, params providers.TokenR
 	// dbToken.CreatedAt = dbToken.CreatedAt
 	dbToken.UpdatedAt = xoutil.SqTime{time.Now()}
 	return dbToken.Save(tr.db)
+}
+
+func (tr *TokenRequester) handleResults(request TokenRequest, token *oauth2.Token, err error) {
+	result := TokenRequestResult{
+		token: token,
+		err:   err,
+	}
+	request.result <- result
+}
+
+func (tr *TokenRequester) fetchAndSaveNewToken(params providers.TokenRequestParams) (*oauth2.Token, error) {
+	token, err := tr.FetchNewToken(params)
+	if err != nil {
+		logrus.Errorf("something went wrong fetching new token (%s)", params.RefreshToken)
+		return token, err
+	}
+
+	logrus.Debugf("saving new token to database (%s)", params.RefreshToken)
+	err = tr.SaveToken(token, params)
+	if err != nil {
+		logrus.Errorf("something went wrong saving a new token to the database (%s)", params.RefreshToken)
+		return token, err
+	}
+
+	return token, nil
 }
 
 type TokenRequest struct {
