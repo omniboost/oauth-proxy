@@ -82,6 +82,8 @@ func (tr *TokenRequester) Listen() {
 			}
 
 			logrus.Debugf("token (%s) isn't valid anymore, fetching new token", params.RefreshToken)
+			params.RefreshToken = token.RefreshToken
+			logrus.Debugf("using latest refresh token (%s) to request new token", params.RefreshToken)
 			token, err = tr.fetchAndSaveNewToken(params)
 			if err != nil {
 				tr.handleResults(request, nil, err)
