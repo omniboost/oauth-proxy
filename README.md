@@ -1,7 +1,8 @@
 # Oauth Proxy
 
 This proxy is created to allow multiple clients (programs, servers) to use the
-same Oauth token to be used simultaneously.
+same Oauth token to be used simultaneously and keeping the latest (refresh)
+token in sync in multiple processes.
 
 This is a proxy specifically for Oauth token calls. It intercepts calls to the
 token endpoint of a Oauth provider. The proxy keeps a local database of the
