@@ -55,7 +55,7 @@ func (tr *TokenRequester) Listen() {
 			token, err := tr.TokenFromDB(params)
 			if err == sql.ErrNoRows {
 				// no results in db: request new token
-				logrus.Debugf("couldn't find original refresh token in database, requesting new token (%s)", params.RefreshToken)
+				logrus.Debugf("couldn't find refresh token in database, requesting new token (%s)", params.RefreshToken)
 				token, err := tr.fetchAndSaveNewToken(params)
 				if err != nil {
 					tr.handleResults(request, nil, err)
@@ -130,8 +130,19 @@ func (tr *TokenRequester) FetchNewToken(params providers.TokenRequestParams) (*o
 	return tokenSource.Token()
 }
 
+func (tr *TokenRequester) DBTokenFromDB(params providers.TokenRequestParams) (*db.OauthToken, error) {
+	// first check if there's an entry with the current refresh token
+	dbToken, err := db.OauthTokenByAppClientIDClientSecretRefreshToken(tr.db, tr.provider.Name(), params.ClientID, params.ClientSecret, params.RefreshToken)
+	if err == sql.ErrNoRows {
+		// no result, check if there's an entry based on the original refresh
+		// token
+		dbToken, err = db.OauthTokenByAppClientIDClientSecretOriginalRefreshToken(tr.db, tr.provider.Name(), params.ClientID, params.ClientSecret, params.RefreshToken)
+	}
+	return dbToken, err
+}
+
 func (tr *TokenRequester) TokenFromDB(params providers.TokenRequestParams) (*oauth2.Token, error) {
-	dbToken, err := db.OauthTokenByAppClientIDClientSecretOriginalRefreshToken(tr.db, tr.provider.Name(), params.ClientID, params.ClientSecret, params.RefreshToken)
+	dbToken, err := tr.DBTokenFromDB(params)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +159,7 @@ func (tr *TokenRequester) TokenFromDB(params providers.TokenRequestParams) (*oau
 func (tr *TokenRequester) SaveToken(token *oauth2.Token, params providers.TokenRequestParams) error {
 	// @TODO: How to handle this better?
 	// - remove the checking of ErrNoRows
-	dbToken, err := db.OauthTokenByAppClientIDClientSecretOriginalRefreshToken(tr.db, tr.provider.Name(), params.ClientID, params.ClientSecret, params.RefreshToken)
+	dbToken, err := tr.DBTokenFromDB(params)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			dbToken = &db.OauthToken{

@@ -188,3 +188,29 @@ func OauthTokenByAppClientIDClientSecretOriginalRefreshToken(db XODB, app string
 
 	return &ot, nil
 }
+
+// OauthTokenByAppClientIDClientSecretRefreshToken retrieves a row from 'oauth_tokens' as a OauthToken.
+//
+// Generated from index 'ot_app_client_id_client_secret_refresh_token'.
+func OauthTokenByAppClientIDClientSecretRefreshToken(db XODB, app string, clientID string, clientSecret string, refreshToken string) (*OauthToken, error) {
+	var err error
+
+	// sql query
+	const sqlstr = `SELECT ` +
+		`id, app, type, client_id, client_secret, original_refresh_token, refresh_token, access_token, expires_at, created_at, updated_at ` +
+		`FROM oauth_tokens ` +
+		`WHERE app = ? AND client_id = ? AND client_secret = ? AND refresh_token = ?`
+
+	// run query
+	XOLog(sqlstr, app, clientID, clientSecret, refreshToken)
+	ot := OauthToken{
+		_exists: true,
+	}
+
+	err = db.QueryRow(sqlstr, app, clientID, clientSecret, refreshToken).Scan(&ot.ID, &ot.App, &ot.Type, &ot.ClientID, &ot.ClientSecret, &ot.OriginalRefreshToken, &ot.RefreshToken, &ot.AccessToken, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ot, nil
+}
