@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"bitbucket.org/tim_online/oauth-proxy/providers"
-	"github.com/gorilla/mux"
 	"github.com/lytics/logrus"
 	"github.com/pkg/errors"
 	"github.com/xo/dburl"
@@ -48,7 +47,7 @@ func NewServer() (*Server, error) {
 type Server struct {
 	port int
 
-	router          *mux.Router
+	router          *http.ServeMux
 	http            *http.Server
 	db              *sql.DB
 	providers       providers.Providers
@@ -85,8 +84,8 @@ func (s *Server) SetProviders(providers providers.Providers) {
 	}
 }
 
-func (s *Server) NewRouter() *mux.Router {
-	r := mux.NewRouter()
+func (s *Server) NewRouter() *http.ServeMux {
+	r := http.NewServeMux()
 
 	for _, prov := range s.providers {
 		r.HandleFunc(prov.Route(), s.NewProviderHandler(prov))
@@ -94,7 +93,7 @@ func (s *Server) NewRouter() *mux.Router {
 	return r
 }
 
-func (s *Server) SetRouter(r *mux.Router) {
+func (s *Server) SetRouter(r *http.ServeMux) {
 	s.router = r
 	s.http.Handler = r
 }
