@@ -17,10 +17,10 @@ vendor: Gopkg.toml Gopkg.lock
 build: oauth-proxy oauth-proxy.exe
 
 oauth-proxy: ${GO_SRC} vendor db/xo_db.xo.go
-	go build -o oauth-proxy ./bin
+	go build ./bin/oauth-proxy
 
 oauth-proxy.exe: ${GO_SRC} vendor db/xo_db.xo.go
-	GOOS=windows go build -o oauth-proxy.exe ./bin
+	GOOS=windows go build ./bin/oauth-proxy
 
 db/xo_db.xo.go:
 	go generate
