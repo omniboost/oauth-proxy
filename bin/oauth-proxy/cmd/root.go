@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"bitbucket.org/tim_online/oauth-proxy/db"
 	"github.com/lytics/logrus"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
@@ -99,6 +100,11 @@ func initLogger() {
 		logrus.SetLevel(logrus.InfoLevel)
 	} else {
 		logrus.SetLevel(logrus.DebugLevel)
+	}
+
+	// Init logging of queries
+	db.XOLog = func(s string, p ...interface{}) {
+		logrus.Debug("> SQL: %s -- params: %v\n", s, p)
 	}
 }
 
