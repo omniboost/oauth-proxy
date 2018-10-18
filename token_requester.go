@@ -163,22 +163,22 @@ func (tr *TokenRequester) SaveToken(token *oauth2.Token, params providers.TokenR
 	if err != nil {
 		if err == sql.ErrNoRows {
 			dbToken = &db.OauthToken{
-				CreatedAt: xoutil.SqTime{time.Now()},
+				App:                  tr.provider.Name(),
+				Type:                 token.Type(),
+				ClientID:             params.ClientID,
+				ClientSecret:         params.ClientSecret,
+				OriginalRefreshToken: params.RefreshToken,
+				CreatedAt:            xoutil.SqTime{time.Now()},
 			}
 		} else {
 			return err
 		}
 	}
 
-	dbToken.App = tr.provider.Name()
-	dbToken.Type = token.Type()
-	dbToken.ClientID = params.ClientID
-	dbToken.ClientSecret = params.ClientSecret
-	dbToken.OriginalRefreshToken = params.RefreshToken
+	// update only changes
 	dbToken.RefreshToken = token.RefreshToken
 	dbToken.AccessToken = token.AccessToken
 	dbToken.ExpiresAt = xoutil.SqTime{token.Expiry}
-	// dbToken.CreatedAt = dbToken.CreatedAt
 	dbToken.UpdatedAt = xoutil.SqTime{time.Now()}
 	return dbToken.Save(tr.db)
 }
