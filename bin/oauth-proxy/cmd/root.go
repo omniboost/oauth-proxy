@@ -15,16 +15,20 @@ var cfgFile string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "cmd",
-	Short: "Oauth proxy to allow multiple clients to use the same token",
-	Long:  `Oauth proxy to allow multiple clients to use the same token`,
+	Use:              "cmd",
+	Short:            "Oauth proxy to allow multiple clients to use the same token",
+	Long:             `Oauth proxy to allow multiple clients to use the same token`,
+	TraverseChildren: true,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) {
 	// 	log.Println(cmd, args)
 	// 	serverCmd.Run(cmd, args)
 	// },
-	RunE: serverCmd.RunE,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		// @TODO: this doesn't parse subcmd flags
+		return serverCmd.Execute()
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
