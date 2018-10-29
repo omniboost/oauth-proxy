@@ -126,6 +126,7 @@ func (tr *TokenRequester) NewTokenRequest(params providers.TokenRequestParams) T
 
 func (tr *TokenRequester) FetchNewToken(params providers.TokenRequestParams) (*oauth2.Token, error) {
 	// retrieve new token
+	logrus.Debugf("requesting new token with the following params :%+v", params)
 	tokenSource := tr.provider.TokenSource(oauth2.NoContext, params)
 	return tokenSource.Token()
 }
