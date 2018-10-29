@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"bitbucket.org/tim_online/oauth-proxy/db"
-	"bitbucket.org/tim_online/oauth-proxy/providers"
 	"github.com/lytics/logrus"
+	"github.com/omniboost/oauth-proxy/db"
+	"github.com/omniboost/oauth-proxy/providers"
 	"github.com/xo/xoutil"
 	"golang.org/x/oauth2"
 )

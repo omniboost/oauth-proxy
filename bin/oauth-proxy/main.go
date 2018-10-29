@@ -1,6 +1,6 @@
 package main
 
-import "bitbucket.org/tim_online/oauth-proxy/bin/oauth-proxy/cmd"
+import "github.com/omniboost/oauth-proxy/bin/oauth-proxy/cmd"
 
 func main() {
 	cmd.Execute()

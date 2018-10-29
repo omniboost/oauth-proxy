@@ -44,5 +44,5 @@ calls to the original token endpoint.
 ## Installation
 
 ```
-go get bitbucket.org/tim_online/oauth-proxy/bin/oauth-proxy
+go get github.com/omniboost/oauth-proxy/bin/oauth-proxy
 ```

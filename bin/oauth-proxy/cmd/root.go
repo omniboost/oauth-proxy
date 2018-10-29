@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"bitbucket.org/tim_online/oauth-proxy/db"
 	"github.com/lytics/logrus"
 	homedir "github.com/mitchellh/go-homedir"
+	"github.com/omniboost/oauth-proxy/db"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"

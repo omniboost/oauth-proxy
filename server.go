@@ -17,8 +17,8 @@ import (
 	"strings"
 	"time"
 
-	"bitbucket.org/tim_online/oauth-proxy/providers"
 	"github.com/lytics/logrus"
+	"github.com/omniboost/oauth-proxy/providers"
 	"github.com/pkg/errors"
 	"github.com/xo/dburl"
 	"golang.org/x/oauth2"
