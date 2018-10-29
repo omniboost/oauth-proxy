@@ -314,24 +314,29 @@ func (s *Server) GetTokenRequestParamsFromFormRequest(r *http.Request) (provider
 		return trp, err
 	}
 
-	auth := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
-
-	if len(auth) != 2 || auth[0] != "Basic" {
-		return trp, errors.New("no authorization header found")
-	}
-
-	payload, _ := base64.StdEncoding.DecodeString(auth[1])
-	pair := strings.SplitN(string(payload), ":", 2)
-
-	if len(pair) != 2 {
-		return trp, errors.New("garbled authorization header")
-	}
-
-	return providers.TokenRequestParams{
-		ClientID:     pair[0],
-		ClientSecret: pair[1],
+	// client_id and client_secret can be in authorization header or in form values
+	// assume form values and then check authorization header
+	params := providers.TokenRequestParams{
+		ClientID:     vals.Get("client_id"),
+		ClientSecret: vals.Get("client_secret"),
 		RefreshToken: vals.Get("refresh_token"),
-	}, nil
+	}
+
+	auth := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
+	if len(auth) == 2 && auth[0] == "Basic" {
+		payload, _ := base64.StdEncoding.DecodeString(auth[1])
+		pair := strings.SplitN(string(payload), ":", 2)
+
+		if len(pair) != 2 {
+			return trp, errors.New("garbled authorization header")
+		}
+
+		// correct authorization header found: use them for client_id and client_secret
+		params.ClientID = pair[0]
+		params.ClientSecret = pair[1]
+	}
+
+	return params, nil
 }
 
 func (s *Server) GetTokenRequestParamsFromJSONRequest(r *http.Request) (providers.TokenRequestParams, error) {
