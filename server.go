@@ -260,6 +260,7 @@ func (s *Server) ErrorResponse(w http.ResponseWriter, err error) {
 	logrus.Error(err)
 
 	w.WriteHeader(http.StatusBadRequest)
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	// fake original oauth token response
 	errorResponse := ErrorResponse{
