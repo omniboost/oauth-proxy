@@ -10,6 +10,8 @@ type TokenRequestBody struct {
 	RefreshToken string `json:"refresh_token"`
 	ClientID     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
+	Code         string `json:"code"`
+	RedirectURL  string `json:"redirect_uri"`
 
 	RawMessages
 }
@@ -24,6 +26,8 @@ func (rb *TokenRequestBody) UnmarshalJSON(data []byte) error {
 		"refresh_token": &rb.RefreshToken,
 		"client_id":     &rb.ClientID,
 		"client_secret": &rb.ClientSecret,
+		"code":          &rb.Code,
+		"redirect_uri":  &rb.RedirectURL,
 	}
 
 	for k, v := range mappings {

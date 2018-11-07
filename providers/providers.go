@@ -13,6 +13,7 @@ type Provider interface {
 	Name() string
 	Route() string
 	// OauthConfig() oauth2.Config
+	Exchange(context.Context, TokenRequestParams, ...oauth2.AuthCodeOption) (*oauth2.Token, error)
 	TokenSource(context.Context, TokenRequestParams) oauth2.TokenSource
 	// NewToken(TokenRequestParams) (oauth2.Token, error)
 }
@@ -44,4 +45,6 @@ type TokenRequestParams struct {
 	ClientID     string
 	ClientSecret string
 	RefreshToken string
+	Code         string
+	RedirectURL  string
 }

@@ -49,50 +49,13 @@ func (tr *TokenRequester) Listen() {
 	for {
 		select {
 		case request := <-tr.requests:
-			params := request.params
-			logrus.Debugf("new token request received (%s)", params.RefreshToken)
-
-			token, err := tr.TokenFromDB(params)
-			if err == sql.ErrNoRows {
-				// no results in db: request new token
-				logrus.Debugf("couldn't find refresh token in database, requesting new token (%s)", params.RefreshToken)
-				token, err := tr.fetchAndSaveNewToken(params)
-				if err != nil {
-					tr.handleResults(request, nil, err)
-					continue
-				}
-
-				logrus.Debugf("sending new token to requester (%s)", params.RefreshToken)
-				tr.handleResults(request, token, nil)
-				continue
-			} else if err != nil {
-				logrus.Errorf("error retrieving token from database (%s)", params.RefreshToken)
-				tr.handleResults(request, nil, err)
-				continue
+			if request.params.Code != "" {
+				token, err := tr.CodeExchange(request)
+				tr.handleResults(request, token, err)
 			} else {
-				logrus.Debugf("found existing token in database (%s)", params.RefreshToken)
+				token, err := tr.TokenRefresh(request)
+				tr.handleResults(request, token, err)
 			}
-
-			// existing token, check if still valid
-			if token.Valid() {
-				// token is valid, use that
-				logrus.Debugf("sending new token to requester (%s)", params.RefreshToken)
-				tr.handleResults(request, token, nil)
-				continue
-			}
-
-			logrus.Debugf("token (%s) isn't valid anymore, fetching new token", params.RefreshToken)
-			params.RefreshToken = token.RefreshToken
-			logrus.Debugf("using latest refresh token (%s) to request new token", params.RefreshToken)
-			token, err = tr.fetchAndSaveNewToken(params)
-			if err != nil {
-				tr.handleResults(request, nil, err)
-				continue
-			}
-
-			// existing token, not valid
-			logrus.Debugf("sending new token to requester (%s)", params.RefreshToken)
-			tr.handleResults(request, token, nil)
 		case <-tr.ctx.Done():
 			fmt.Println("done")
 			return
@@ -101,6 +64,68 @@ func (tr *TokenRequester) Listen() {
 			// 	return
 		}
 	}
+}
+
+func (tr *TokenRequester) CodeExchange(req TokenRequest) (*oauth2.Token, error) {
+	// exchange code for token and save new token in db
+	params := req.params
+	logrus.Debugf("new code exchange request received (%s)", params.Code)
+
+	token, err := tr.provider.Exchange(oauth2.NoContext, params)
+	if err != nil {
+		logrus.Errorf("something went wrong exchanging code (%s)", params.Code)
+		return token, err
+	}
+
+	logrus.Debugf("saving new token to database (%s)", token.RefreshToken)
+	err = tr.SaveToken(token, params)
+	if err != nil {
+		logrus.Errorf("something went wrong saving a new token to the database (%s)", token.RefreshToken)
+		return token, err
+	}
+	return token, err
+}
+
+func (tr *TokenRequester) TokenRefresh(req TokenRequest) (*oauth2.Token, error) {
+	params := req.params
+	logrus.Debugf("new token refresh request received (%s)", params.RefreshToken)
+
+	token, err := tr.TokenFromDB(params)
+	if err == sql.ErrNoRows {
+		// no results in db: request new token
+		logrus.Debugf("couldn't find refresh token in database, requesting new token (%s)", params.RefreshToken)
+		token, err := tr.fetchAndSaveNewToken(params)
+		if err != nil {
+			return token, err
+		}
+
+		logrus.Debugf("sending new token to requester (%s)", params.RefreshToken)
+		return token, err
+	} else if err != nil {
+		logrus.Errorf("error retrieving token from database (%s)", params.RefreshToken)
+		return token, err
+	} else {
+		logrus.Debugf("found existing token in database (%s)", params.RefreshToken)
+	}
+
+	// existing token, check if still valid
+	if token.Valid() {
+		// token is valid, use that
+		logrus.Debugf("sending new token to requester (%s)", params.RefreshToken)
+		return token, err
+	}
+
+	logrus.Debugf("token (%s) isn't valid anymore, fetching new token", params.RefreshToken)
+	params.RefreshToken = token.RefreshToken
+	logrus.Debugf("using latest refresh token (%s) to request new token", params.RefreshToken)
+	token, err = tr.fetchAndSaveNewToken(params)
+	if err != nil {
+		return token, err
+	}
+
+	// existing token, not valid
+	logrus.Debugf("sending new token to requester (%s)", params.RefreshToken)
+	return token, err
 }
 
 func (tr *TokenRequester) Stop() {

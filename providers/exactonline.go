@@ -48,10 +48,19 @@ func (eo ExactOnline) oauthConfig() *oauth2.Config {
 	}
 }
 
+func (eo ExactOnline) Exchange(ctx context.Context, params TokenRequestParams, opts ...oauth2.AuthCodeOption) (*oauth2.Token, error) {
+	config := eo.oauthConfig()
+	config.ClientID = params.ClientID
+	config.ClientSecret = params.ClientSecret
+	config.RedirectURL = params.RedirectURL
+	return config.Exchange(ctx, params.Code, opts...)
+}
+
 func (eo ExactOnline) TokenSource(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
 	config := eo.oauthConfig()
 	config.ClientID = params.ClientID
 	config.ClientSecret = params.ClientSecret
+	config.RedirectURL = params.RedirectURL
 	token := &oauth2.Token{
 		RefreshToken: params.RefreshToken,
 	}

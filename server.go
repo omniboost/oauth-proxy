@@ -206,6 +206,16 @@ func (s *Server) NewProviderHandler(provider providers.Provider) http.HandlerFun
 	// - send to provider endpoint
 
 	// {
+	//  	code: "0-ec!IAAAAGXemi5fmLHLD5yHXEDXOPFh6Ia…",
+	//  	redirect_uri: "",
+	//  	grant_type: "refresh_token",
+	//  	client_id: "b81cc4de-d192-400e-bcb4-09254394c52a",
+	//  	client_secret: "n3G7KAhcv8OH",
+	// }
+
+	// or
+
+	// {
 	//  	refresh_token: "Gcp7!IAAAABh4eI8DgkxRyGGyHPLLOz3y9Ss …",
 	//  	grant_type: "refresh_token",
 	//  	client_id: "b81cc4de-d192-400e-bcb4-09254394c52a",
@@ -320,6 +330,8 @@ func (s *Server) GetTokenRequestParamsFromFormRequest(r *http.Request) (provider
 		ClientID:     vals.Get("client_id"),
 		ClientSecret: vals.Get("client_secret"),
 		RefreshToken: vals.Get("refresh_token"),
+		Code:         vals.Get("code"),
+		RedirectURL:  vals.Get("redirect_uri"),
 	}
 
 	auth := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
@@ -355,5 +367,7 @@ func (s *Server) GetTokenRequestParamsFromJSONRequest(r *http.Request) (provider
 		ClientID:     reqBody.ClientID,
 		ClientSecret: reqBody.ClientSecret,
 		RefreshToken: reqBody.RefreshToken,
+		Code:         reqBody.Code,
+		RedirectURL:  reqBody.RedirectURL,
 	}, nil
 }
