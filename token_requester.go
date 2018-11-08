@@ -193,7 +193,7 @@ func (tr *TokenRequester) SaveToken(token *oauth2.Token, params providers.TokenR
 				Type:                 token.Type(),
 				ClientID:             params.ClientID,
 				ClientSecret:         params.ClientSecret,
-				OriginalRefreshToken: params.RefreshToken,
+				OriginalRefreshToken: token.RefreshToken,
 				CreatedAt:            xoutil.SqTime{time.Now()},
 			}
 		} else {
