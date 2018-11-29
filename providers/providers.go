@@ -38,6 +38,8 @@ func Load() Providers {
 				Scheme: "https",
 				Host:   "start.exactonline.fr",
 			}),
+		NewQuickBooks().
+			WithName("quickbooks"),
 	}
 }
 
