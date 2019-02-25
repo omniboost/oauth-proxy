@@ -11,6 +11,7 @@ import (
 	"log"
 	"mime"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"os"
 	"os/signal"
@@ -224,6 +225,13 @@ func (s *Server) NewProviderHandler(provider providers.Provider) http.HandlerFun
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
+
+		b, err := httputil.DumpRequest(r, true)
+		if err != nil {
+			s.ErrorResponse(w, err)
+			return
+		}
+		log.Println(string(b))
 
 		trp, err := s.GetTokenRequestParamsFromRequest(r)
 		if err != nil {
