@@ -303,14 +303,22 @@ func (s *Server) RequestToken(provider providers.Provider, params providers.Toke
 }
 
 func (s *Server) GetTokenRequestParamsFromRequest(r *http.Request) (providers.TokenRequestParams, error) {
+	var err error
 	// body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1<<20))
 	// if err != nil {
 	// 	return trp, fmt.Errorf("oauth2: cannot fetch token: %v", err)
 	// }
 
-	content, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	content := r.Header.Get("Content-Type")
+	if content != "" {
+		content, _, err = mime.ParseMediaType(r.Header.Get("Content-Type"))
+		if err != nil {
+			return providers.TokenRequestParams{}, errors.WithStack(err)
+		}
+	}
+
 	switch content {
-	case "application/x-www-form-urlencoded", "text/plain":
+	case "application/x-www-form-urlencoded", "text/plain", "":
 		return s.GetTokenRequestParamsFromFormRequest(r)
 	default:
 		return s.GetTokenRequestParamsFromJSONRequest(r)
