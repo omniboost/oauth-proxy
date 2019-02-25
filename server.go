@@ -29,7 +29,7 @@ func NewServer() (*Server, error) {
 
 	db, err := s.NewDB()
 	if err != nil {
-		return s, err
+		return s, errors.WithStack(err)
 	}
 	s.SetDB(db)
 
@@ -114,19 +114,19 @@ func (s *Server) NewDB() (*sql.DB, error) {
 	if os.IsNotExist(err) {
 		src, err := Assets.Open("empty.sqlite3")
 		if err != nil {
-			return nil, err
+			return nil, errors.WithStack(err)
 		}
 		defer src.Close()
 
 		dest, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0666)
 		if err != nil {
-			return nil, err
+			return nil, errors.WithStack(err)
 		}
 		defer dest.Close()
 
 		_, err = io.Copy(dest, src)
 		if err != nil {
-			return nil, err
+			return nil, errors.WithStack(err)
 		}
 	}
 	url := fmt.Sprintf("sqlite://%s?loc=auto", path)
@@ -159,7 +159,7 @@ func (s *Server) Start() error {
 		break
 	case err := <-errChan:
 		if err != nil {
-			return err
+			return errors.WithStack(err)
 		}
 	}
 
@@ -316,12 +316,12 @@ func (s *Server) GetTokenRequestParamsFromFormRequest(r *http.Request) (provider
 
 	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1<<20))
 	if err != nil {
-		return trp, err
+		return trp, errors.WithStack(err)
 	}
 
 	vals, err := url.ParseQuery(string(body))
 	if err != nil {
-		return trp, err
+		return trp, errors.WithStack(err)
 	}
 
 	// client_id and client_secret can be in authorization header or in form values
@@ -359,7 +359,7 @@ func (s *Server) GetTokenRequestParamsFromJSONRequest(r *http.Request) (provider
 	reqBody := TokenRequestBody{}
 	err := decoder.Decode(&reqBody)
 	if err != nil && err != io.EOF {
-		return trp, err
+		return trp, errors.WithStack(err)
 	}
 
 	// create a tokenrequest for the provider
