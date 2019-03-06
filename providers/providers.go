@@ -42,6 +42,8 @@ func Load() Providers {
 			WithName("quickbooks"),
 		NewIzettle().
 			WithName("izettle"),
+		NewMinox().
+			WithName("minox"),
 	}
 }
 
