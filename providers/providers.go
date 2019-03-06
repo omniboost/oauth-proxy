@@ -40,6 +40,8 @@ func Load() Providers {
 			}),
 		NewQuickBooks().
 			WithName("quickbooks"),
+		NewIzettle().
+			WithName("izettle"),
 	}
 }
 
