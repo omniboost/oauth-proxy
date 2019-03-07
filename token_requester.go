@@ -92,7 +92,7 @@ func (tr *TokenRequester) TokenRefresh(req TokenRequest) (*oauth2.Token, error) 
 	logrus.Debugf("new token refresh request received (%s)", params.RefreshToken)
 
 	token, err := tr.TokenFromDB(params)
-	if err == sql.ErrNoRows {
+	if errors.Cause(err) == sql.ErrNoRows {
 		// no results in db: request new token
 		logrus.Debugf("couldn't find refresh token in database, requesting new token (%s)", params.RefreshToken)
 		token, err := tr.fetchAndSaveNewToken(params)
@@ -103,7 +103,7 @@ func (tr *TokenRequester) TokenRefresh(req TokenRequest) (*oauth2.Token, error) 
 		logrus.Debugf("sending new token to requester (%s)", params.RefreshToken)
 		return token, errors.WithStack(err)
 	} else if err != nil {
-		logrus.Errorf("error retrieving token from database (%s)", params.RefreshToken)
+		logrus.Errorf("error retrieving token from database (%s): %s", params.RefreshToken, err)
 		return token, errors.WithStack(err)
 	} else {
 		logrus.Debugf("found existing token in database (%s)", params.RefreshToken)
@@ -160,7 +160,7 @@ func (tr *TokenRequester) FetchNewToken(params providers.TokenRequestParams) (*o
 func (tr *TokenRequester) DBTokenFromDB(params providers.TokenRequestParams) (*db.OauthToken, error) {
 	// first check if there's an entry with the current refresh token
 	dbToken, err := db.OauthTokenByAppClientIDClientSecretRefreshToken(tr.db, tr.provider.Name(), params.ClientID, params.ClientSecret, params.RefreshToken)
-	if err == sql.ErrNoRows {
+	if errors.Cause(err) == sql.ErrNoRows {
 		// no result, check if there's an entry based on the original refresh
 		// token
 		dbToken, err = db.OauthTokenByAppClientIDClientSecretOriginalRefreshToken(tr.db, tr.provider.Name(), params.ClientID, params.ClientSecret, params.RefreshToken)
@@ -188,7 +188,7 @@ func (tr *TokenRequester) SaveToken(token *oauth2.Token, params providers.TokenR
 	// - remove the checking of ErrNoRows
 	dbToken, err := tr.DBTokenFromDB(params)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Cause(err) == sql.ErrNoRows {
 			dbToken = &db.OauthToken{
 				App:                  tr.provider.Name(),
 				Type:                 token.Type(),
