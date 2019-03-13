@@ -6,6 +6,10 @@ import (
 	"golang.org/x/oauth2"
 )
 
+func init() {
+	oauth2.RegisterBrokenAuthHeaderProvider("https://oauth.izettle.net")
+}
+
 type Izettle struct {
 	name string
 }
