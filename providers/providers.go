@@ -44,6 +44,8 @@ func Load() Providers {
 			WithName("izettle"),
 		NewMinox().
 			WithName("minox"),
+		NewApaleo().
+			WithName("apaleo"),
 	}
 }
 
