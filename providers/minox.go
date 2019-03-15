@@ -6,6 +6,10 @@ import (
 	"golang.org/x/oauth2"
 )
 
+func init() {
+	oauth2.RegisterBrokenAuthHeaderProvider("https://app.minox.nl")
+}
+
 type Minox struct {
 	name string
 }
