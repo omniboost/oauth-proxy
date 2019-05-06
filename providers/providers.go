@@ -46,6 +46,8 @@ func Load() Providers {
 			WithName("minox"),
 		NewApaleo().
 			WithName("apaleo"),
+		NewCloudbeds().
+			WithName("cloudbeds.com"),
 	}
 }
 
