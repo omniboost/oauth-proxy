@@ -48,6 +48,8 @@ func Load() Providers {
 			WithName("apaleo"),
 		NewCloudbeds().
 			WithName("cloudbeds.com"),
+		NewXero().
+			WithName("xero.com"),
 	}
 }
 
