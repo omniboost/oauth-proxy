@@ -7,7 +7,6 @@ import (
 )
 
 func init() {
-	oauth2.RegisterBrokenAuthHeaderProvider("https://app.minox.nl")
 }
 
 type Cloudbeds struct {
