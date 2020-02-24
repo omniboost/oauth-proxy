@@ -12,6 +12,8 @@ require (
 	github.com/mattn/go-isatty v0.0.4 // indirect
 	github.com/mattn/go-sqlite3 v1.10.0 // indirect
 	github.com/mitchellh/go-homedir v1.0.0
+	github.com/motemen/go-loghttp v0.0.0-20170804080138-974ac5ceac27
+	github.com/motemen/go-nuts v0.0.0-20190725124253-1d2432db96b0 // indirect
 	github.com/pkg/errors v0.8.0
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/pflag v1.0.2

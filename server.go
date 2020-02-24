@@ -227,11 +227,12 @@ func (s *Server) NewProviderHandler(provider providers.Provider) http.HandlerFun
 		defer r.Body.Close()
 
 		b, err := httputil.DumpRequest(r, true)
+		logrus.Debug("Server incoming request:")
+		logrus.Debug(string(b))
 		if err != nil {
 			s.ErrorResponse(w, err)
 			return
 		}
-		log.Println(string(b))
 
 		trp, err := s.GetTokenRequestParamsFromRequest(r)
 		if err != nil {

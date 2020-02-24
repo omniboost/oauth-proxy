@@ -2,10 +2,13 @@ package cmd
 
 import (
 	"fmt"
+	"net/http"
+	"net/http/httputil"
 	"os"
 
 	"github.com/lytics/logrus"
 	homedir "github.com/mitchellh/go-homedir"
+	"github.com/motemen/go-loghttp"
 	"github.com/omniboost/oauth-proxy/db"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -100,6 +103,21 @@ func initLogger() {
 		logrus.SetLevel(logrus.InfoLevel)
 	} else {
 		logrus.SetLevel(logrus.DebugLevel)
+	}
+
+	if verbosity > 2 {
+		// log http requests
+		http.DefaultTransport = loghttp.DefaultTransport
+		loghttp.DefaultTransport.LogRequest = func(req *http.Request) {
+			b, _ := httputil.DumpRequestOut(req, true)
+			logrus.Debug("Client outgoing request:")
+			logrus.Debug(string(b))
+		}
+		loghttp.DefaultTransport.LogResponse = func(res *http.Response) {
+			b, _ := httputil.DumpResponse(res, true)
+			logrus.Debug("Client incoming response:")
+			logrus.Debug(string(b))
+		}
 	}
 
 	// Init logging of queries
