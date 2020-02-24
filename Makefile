@@ -10,16 +10,13 @@ GO_SRC = $(shell find ${MKFILE_PATH} -type f -name '*.go' -not -path "./vendor/*
 
 .DEFAULT_GOAL := build
 
-vendor: Gopkg.toml Gopkg.lock
-	dep ensure
-
 .PHONY: build
 build: oauth-proxy oauth-proxy.exe
 
-oauth-proxy: ${GO_SRC} vendor db/xo_db.xo.go
+oauth-proxy: ${GO_SRC} db/xo_db.xo.go
 	go build ./bin/oauth-proxy
 
-oauth-proxy.exe: ${GO_SRC} vendor db/xo_db.xo.go
+oauth-proxy.exe: ${GO_SRC} db/xo_db.xo.go
 	GOOS=windows go build ./bin/oauth-proxy
 
 db/xo_db.xo.go:
