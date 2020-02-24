@@ -1,6 +1,7 @@
 package oauthproxy
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/base64"
@@ -228,7 +229,9 @@ func (s *Server) NewProviderHandler(provider providers.Provider) http.HandlerFun
 
 		b, err := httputil.DumpRequest(r, true)
 		logrus.Debug("Server incoming request:")
-		logrus.Debug(string(b))
+		for _, s := range strings.Split(string(b), "\r\n") {
+			logrus.Debug(s)
+		}
 		if err != nil {
 			s.ErrorResponse(w, err)
 			return
@@ -255,7 +258,14 @@ func (s *Server) NewProviderHandler(provider providers.Provider) http.HandlerFun
 			return
 		}
 
+		var buf bytes.Buffer
+		rsp := io.MultiWriter(w, &buf)
+		// from this point on use rsp instead of w, ie
+
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+		// get the response headers
+		// w.Header().Write(&buf)
 
 		// create response body
 		responseBody := TokenResponseBody{
@@ -266,8 +276,13 @@ func (s *Server) NewProviderHandler(provider providers.Provider) http.HandlerFun
 		}
 
 		// stream response body
-		encoder := json.NewEncoder(w)
+		encoder := json.NewEncoder(rsp)
 		encoder.Encode(responseBody)
+
+		logrus.Debug("Server outgoing response:")
+		for _, s := range strings.Split(buf.String(), "\r\n") {
+			logrus.Debug(s)
+		}
 	}
 }
 

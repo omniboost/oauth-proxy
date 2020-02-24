@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"os"
+	"strings"
 
 	"github.com/lytics/logrus"
 	homedir "github.com/mitchellh/go-homedir"
@@ -111,12 +112,16 @@ func initLogger() {
 		loghttp.DefaultTransport.LogRequest = func(req *http.Request) {
 			b, _ := httputil.DumpRequestOut(req, true)
 			logrus.Debug("Client outgoing request:")
-			logrus.Debug(string(b))
+			for _, s := range strings.Split(string(b), "\r\n") {
+				logrus.Debug(s)
+			}
 		}
 		loghttp.DefaultTransport.LogResponse = func(res *http.Response) {
 			b, _ := httputil.DumpResponse(res, true)
 			logrus.Debug("Client incoming response:")
-			logrus.Debug(string(b))
+			for _, s := range strings.Split(string(b), "\r\n") {
+				logrus.Debug(s)
+			}
 		}
 	}
 
