@@ -12,6 +12,7 @@ type TokenRequestBody struct {
 	ClientSecret string `json:"client_secret"`
 	Code         string `json:"code"`
 	RedirectURL  string `json:"redirect_uri"`
+	CodeVerifier string `json:"code_verifier,omitempty"`
 
 	RawMessages
 }
@@ -28,6 +29,7 @@ func (rb *TokenRequestBody) UnmarshalJSON(data []byte) error {
 		"client_secret": &rb.ClientSecret,
 		"code":          &rb.Code,
 		"redirect_uri":  &rb.RedirectURL,
+		"code_verifier": &rb.CodeVerifier,
 	}
 
 	for k, v := range mappings {
