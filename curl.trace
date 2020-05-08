@@ -1,0 +1,161 @@
+== Info:   Trying 104.196.113.33...
+== Info: TCP_NODELAY set
+== Info: Connected to test.lightspeedapis.com (104.196.113.33) port 443 (#0)
+== Info: ALPN, offering h2
+== Info: ALPN, offering http/1.1
+== Info: successfully set certificate verify locations:
+== Info:   CAfile: /etc/ssl/certs/ca-certificates.crt
+  CApath: /etc/ssl/certs
+=> Send SSL data, 5 bytes (0x5)
+0000: .....
+== Info: TLSv1.3 (OUT), TLS handshake, Client hello (1):
+=> Send SSL data, 512 bytes (0x200)
+0000: ...............y.im....}?3.X.......P.. .......?R.FM...(g..k^...
+0040: ........>.......,.0.........+./...$.(.k.#.'.g.....9.....3.....=.
+0080: <.5./.....u.........test.lightspeedapis.com.....................
+00c0: ...3t.........h2.http/1.1...........0...........................
+0100: ......................+............-.....3.&.$... !....T.m..2...
+0140: .C....3.>.1..\k..F..............................................
+0180: ................................................................
+01c0: ................................................................
+<= Recv SSL data, 5 bytes (0x5)
+0000: ....l
+== Info: TLSv1.3 (IN), TLS handshake, Server hello (2):
+<= Recv SSL data, 108 bytes (0x6c)
+0000: ...h..ts}..R#.....&.h.9*,g.w\..2...`a. .h!.....p....]......#VK>7
+0040: 7.....X.0.. ........................http/1.1
+<= Recv SSL data, 5 bytes (0x5)
+0000: .....
+== Info: TLSv1.2 (IN), TLS handshake, Certificate (11):
+<= Recv SSL data, 2588 bytes (0xa1c)
+0000: .........y0..u0..]............<...t-.......0...*.H........0J1.0.
+0040: ..U....US1.0...U....Let's Encrypt1#0!..U....Let's Encrypt Author
+0080: ity X30...200317122115Z..200615122115Z0.1.0...U....*.lightspeeda
+00c0: pis.com0.."0...*.H.............0.........<.X...V.!o.A.e.A8.}.L%d
+0100: .....*[1h..f...uC....W;bW.7...r.`.*....._.qXwT.....2F.....hZ4...
+0140: ..F.+............a.E.Fb.......<.g)e.wq.....@..^2.V..[.ju.O.&f?..
+0180: ...fj.p........\........])\.B.n...p>..~...6S.....y....c?.,=...\.
+01c0: l.....iy.m.^SE...96.)...>\.-0.qG..H!.XD.........~0..z0...U......
+0200: .....0...U.%..0...+.........+.......0...U.......0.0...U........1
+0240: h.P.f.1..,...me..0...U.#..0....Jjc.}....9..Ee.....0o..+........c
+0280: 0a0...+.....0.."http://ocsp.int-x3.letsencrypt.org0/..+.....0..#
+02c0: http://cert.int-x3.letsencrypt.org/03..U...,0*..*.lightspeedapis
+0300: .com..lightspeedapis.com0L..U. .E0C0...g.....07..+..........0(0&
+0340: ..+.........http://cps.letsencrypt.org0.....+.....y............w
+0380: ....Y....@.-/....K..G....4......s...p.........H0F.!..Q.<.*u4....
+03c0: ..C.`cZ.a..;^p.4*..K.!...<(.#j.>.....S.h.....UG..M#`..X.v.......
+0400: .. N.f.+..% gk..p..IS-...^...p.........G0E.!.....hA...1w.(....kT
+0440: slW......r.*J. A1.4...:#.6..5U$E...<pK...t..r..0...*.H..........
+0480: ...g.Z...b.L1nc.v.'.+...........e.;n..X.T....-..C....:.8..%U.C..
+04c0: )....0.]......2..|.M.C......[..@...\.vvY6O........i1....j.'.HgV3
+0500: .J...1...(....d!r.blK...9.4.^f....'.S.@.<..NZ...x>..#.,...~[.[.
+0540: .'k..5d..%...J.p..._e.T.3_.....'...c0X..:T...o^0.X....j.6....9..
+0580: ..d...0...0..z.........AB...S.sj.....0...*.H........0?1$0"..U...
+05c0: .Digital Signature Trust Co.1.0...U....DST Root CA X30...1603171
+0600: 64046Z..210317164046Z0J1.0...U....US1.0...U....Let's Encrypt1#0!
+0640: ..U....Let's Encrypt Authority X30.."0...*.H.............0......
+0680: ......Z..G.r]7..hc0..5&.%...5.p./..KA....5.X..*.h....u....bq.y.`
+06c0: .......xgq.i........`<H.~.Mw.$.G.Z....7....{....J..A.6....m<.h.#
+0700: *B...tg....Ra..?e.......V.....?.......k...}.+.e...6u.k.J...Ix/.
+0740: .O* %)..t..1..18....3.C....0.y1.=-6....3j.91......d.3...).....}
+0780: ..........}0..y0...U.......0.......0...U...........0..+........
+07c0: s0q02..+.....0..&http://isrg.trustid.ocsp.identrust.com0;..+....
+0800: .0../http://apps.identrust.com/roots/dstrootcax3.p7c0...U.#..0..
+0840: .....{,q...K.u...`...0T..U. .M0K0...g.....0?..+..........000...+
+0880: ........"http://cps.root-x1.letsencrypt.org0<..U...50301./.-.+ht
+08c0: tp://crl.identrust.com/DSTROOTCAX3CRL.crl0...U.......Jjc.}....9.
+0900: .Ee.....0...*.H..............3...cX8.....U.vV.pH.iG'{.$...Z.J.)7
+0940: $tQ.bh...pg....N(Q.........Z......j.j.>W#....b.......?..H....eb.
+0980: .T..*. .........2...w..ye.+.(.:.R..R.._....3.wl.@.2...\A.tl[]._3
+09c0: .M..8./{,b....o%./...F=.~..z...zm..%......./X../,h&.K........CJ
+0a00: .DNosz(...n{L}.....D....4[.B
+<= Recv SSL data, 5 bytes (0x5)
+0000: ....M
+== Info: TLSv1.2 (IN), TLS handshake, Server key exchange (12):
+<= Recv SSL data, 333 bytes (0x14d)
+0000: ...I...A........X..8Z...pP.N>`g.j..mB....e..D.'X....~..=..5#t.e.
+0040: ..5i\...........[1..9..}F@.m1.......U.k".=.7H6H..=.Fs9.q.r..J..}
+0080: Z.|.DlH.=.c.F..Hm}.....'..4.....r...>...k}9)6)..}..Y....P..A..\.
+00c0: d.....ak..x.....E..z~%n...F^K..Y...G....w...........n...:W| ....
+0100: $.4.!..C..y.h/...m;v.-........Vc..N.......}fG...a..G.S.c.l...mU.
+0140: ..q.R.o.UEq.
+<= Recv SSL data, 5 bytes (0x5)
+0000: .....
+== Info: TLSv1.2 (IN), TLS handshake, Server finished (14):
+<= Recv SSL data, 4 bytes (0x4)
+0000: ....
+=> Send SSL data, 5 bytes (0x5)
+0000: ....F
+== Info: TLSv1.2 (OUT), TLS handshake, Client key exchange (16):
+=> Send SSL data, 70 bytes (0x46)
+0000: ...BA...i.+l..~Y..8`.[....y.....X.-......]...n.d-..O.kx..[$..i..
+0040: 4.f.sy
+=> Send SSL data, 5 bytes (0x5)
+0000: .....
+== Info: TLSv1.2 (OUT), TLS change cipher, Client hello (1):
+=> Send SSL data, 1 bytes (0x1)
+0000: .
+=> Send SSL data, 5 bytes (0x5)
+0000: ....(
+== Info: TLSv1.2 (OUT), TLS handshake, Finished (20):
+=> Send SSL data, 16 bytes (0x10)
+0000: ...._..Q.2.#X.;
+<= Recv SSL data, 5 bytes (0x5)
+0000: .....
+<= Recv SSL data, 5 bytes (0x5)
+0000: ....(
+== Info: TLSv1.2 (IN), TLS handshake, Finished (20):
+<= Recv SSL data, 16 bytes (0x10)
+0000: .....3..~C.z....
+== Info: SSL connection using TLSv1.2 / ECDHE-RSA-AES256-GCM-SHA384
+== Info: ALPN, server accepted to use http/1.1
+== Info: Server certificate:
+== Info:  subject: CN=*.lightspeedapis.com
+== Info:  start date: Mar 17 12:21:15 2020 GMT
+== Info:  expire date: Jun 15 12:21:15 2020 GMT
+== Info:  subjectAltName: host "test.lightspeedapis.com" matched cert's "*.lightspeedapis.com"
+== Info:  issuer: C=US; O=Let's Encrypt; CN=Let's Encrypt Authority X3
+== Info:  SSL certificate verify ok.
+=> Send SSL data, 5 bytes (0x5)
+0000: .....
+=> Send header, 178 bytes (0xb2)
+0000: POST /resto/oauth2/v1/token HTTP/1.1
+0026: Host: test.lightspeedapis.com
+0045: User-Agent: curl/7.58.0
+005e: Accept: */*
+006b: Content-Length: 71
+007f: Content-Type: application/x-www-form-urlencoded
+00b0: 
+=> Send data, 71 bytes (0x47)
+0000: grant_type=refresh_token&refresh_token=EBzOq3mW9jGRQKpadoMnwRCzG
+0040: hyiYgkY
+== Info: upload completely sent off: 71 out of 71 bytes
+<= Recv SSL data, 5 bytes (0x5)
+0000: ....?
+<= Recv header, 27 bytes (0x1b)
+0000: HTTP/1.1 401 Unauthorized
+<= Recv header, 37 bytes (0x25)
+0000: Date: Thu, 07 May 2020 16:07:34 GMT
+<= Recv header, 32 bytes (0x20)
+0000: Content-Type: application/json
+<= Recv header, 21 bytes (0x15)
+0000: Content-Length: 196
+<= Recv header, 24 bytes (0x18)
+0000: Connection: keep-alive
+<= Recv header, 32 bytes (0x20)
+0000: Access-Control-Allow-Origin: *
+<= Recv header, 93 bytes (0x5d)
+0000: Access-Control-Allow-Headers: origin, x-requested-with, accept, 
+0040: Authorization, content-type
+<= Recv header, 33 bytes (0x21)
+0000: Access-Control-Max-Age: 3628800
+<= Recv header, 54 bytes (0x36)
+0000: Access-Control-Allow-Methods: GET, PUT, POST, DELETE
+<= Recv header, 2 bytes (0x2)
+0000: 
+<= Recv data, 196 bytes (0xc4)
+0000: {"code":"unauthorized","message":"unauthorized","statusCode":401
+0040: ,"details":[{"code":"access_denied", "message":"The client is no
+0080: t authorized to request an authorization code using this method.
+00c0: "}]}
+== Info: Connection #0 to host test.lightspeedapis.com left intact
