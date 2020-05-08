@@ -364,7 +364,6 @@ func (s *Server) GetTokenRequestParamsFromFormRequest(r *http.Request) (provider
 		RefreshToken: vals.Get("refresh_token"),
 		Code:         vals.Get("code"),
 		RedirectURL:  vals.Get("redirect_uri"),
-		CodeVerifier: vals.Get("code_verifier"),
 	}
 
 	auth := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
@@ -402,6 +401,5 @@ func (s *Server) GetTokenRequestParamsFromJSONRequest(r *http.Request) (provider
 		RefreshToken: reqBody.RefreshToken,
 		Code:         reqBody.Code,
 		RedirectURL:  reqBody.RedirectURL,
-		CodeVerifier: reqBody.CodeVerifier,
 	}, nil
 }

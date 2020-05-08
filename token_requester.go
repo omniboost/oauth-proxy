@@ -72,12 +72,7 @@ func (tr *TokenRequester) CodeExchange(req TokenRequest) (*oauth2.Token, error) 
 	params := req.params
 	logrus.Debugf("new code exchange request received (%s)", params.Code)
 
-	opts := []oauth2.AuthCodeOption{}
-	if params.CodeVerifier != "" {
-		opts = append(opts, oauth2.SetAuthURLParam("code_verifier", params.CodeVerifier))
-	}
-
-	token, err := tr.provider.Exchange(oauth2.NoContext, params, opts...)
+	token, err := tr.provider.Exchange(oauth2.NoContext, params)
 	if err != nil {
 		logrus.Errorf("something went wrong exchanging code (%s)", params.Code)
 		return token, errors.WithStack(err)
