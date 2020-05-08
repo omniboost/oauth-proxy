@@ -50,6 +50,18 @@ func Load() Providers {
 			WithName("cloudbeds.com"),
 		NewXero().
 			WithName("xero.com"),
+		NewLightspeed().
+			WithName("lightspeed.test").
+			WithBaseURL(url.URL{
+				Scheme: "https",
+				Host:   "test.lightspeedapis.com",
+			}),
+		NewLightspeed().
+			WithName("lightspeed").
+			WithBaseURL(url.URL{
+				Scheme: "https",
+				Host:   "lightspeedapis.com",
+			}),
 	}
 }
 
@@ -59,4 +71,5 @@ type TokenRequestParams struct {
 	RefreshToken string
 	Code         string
 	RedirectURL  string
+	CodeVerifier string
 }
