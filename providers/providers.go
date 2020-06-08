@@ -62,6 +62,8 @@ func Load() Providers {
 				Scheme: "https",
 				Host:   "lightspeedapis.com",
 			}),
+		NewProcountor().
+			WithName("procountor"),
 	}
 }
 
