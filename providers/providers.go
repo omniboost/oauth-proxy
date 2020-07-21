@@ -64,6 +64,12 @@ func Load() Providers {
 			}),
 		NewProcountor().
 			WithName("procountor"),
+		NewLightspeedRetail().
+			WithName("ls_retail").
+			WithBaseURL(url.URL{
+				Scheme: "https",
+				Host:   "cloud.lightspeedapp.com",
+			}),
 	}
 }
 

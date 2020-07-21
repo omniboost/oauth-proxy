@@ -191,6 +191,7 @@ func (tr *TokenRequester) TokenFromDB(params providers.TokenRequestParams) (*oau
 func (tr *TokenRequester) SaveToken(token *oauth2.Token, params providers.TokenRequestParams) error {
 	// @TODO: How to handle this better?
 	// - remove the checking of ErrNoRows
+	params.RefreshToken = token.RefreshToken
 	dbToken, err := tr.DBTokenFromDB(params)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
@@ -205,6 +206,10 @@ func (tr *TokenRequester) SaveToken(token *oauth2.Token, params providers.TokenR
 		} else {
 			return errors.WithStack(err)
 		}
+	}
+
+	if dbToken.ID != 0 {
+		logrus.Debugf("found and existing token with id %d", dbToken.ID)
 	}
 
 	// update only changes
@@ -226,14 +231,14 @@ func (tr *TokenRequester) handleResults(request TokenRequest, token *oauth2.Toke
 func (tr *TokenRequester) fetchAndSaveNewToken(params providers.TokenRequestParams) (*oauth2.Token, error) {
 	token, err := tr.FetchNewToken(params)
 	if err != nil {
-		logrus.Errorf("something went wrong fetching new token (%s)", params.RefreshToken)
+		logrus.Errorf("something went wrong fetching new token (%s): %s", params.RefreshToken, err)
 		return token, errors.WithStack(err)
 	}
 
 	logrus.Debugf("saving new token to database (%s)", params.RefreshToken)
 	err = tr.SaveToken(token, params)
 	if err != nil {
-		logrus.Errorf("something went wrong saving a new token to the database (%s)", params.RefreshToken)
+		logrus.Errorf("something went wrong saving a new token to the database (%s): %s", params.RefreshToken, err)
 		return token, errors.WithStack(err)
 	}
 
