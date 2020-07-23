@@ -84,6 +84,11 @@ func (tr *TokenRequester) CodeExchange(req TokenRequest) (*oauth2.Token, error) 
 	}
 
 	logrus.Debugf("saving new token to database (%s)", token.RefreshToken)
+
+	// params.RefreshToken is used for looking up the entry in the db. Make sure
+	// it's not empty after a first time code exchange
+	params.RefreshToken = token.RefreshToken
+
 	err = tr.SaveToken(token, params)
 	if err != nil {
 		logrus.Errorf("something went wrong saving a new token to the database (%s)", token.RefreshToken)
@@ -200,7 +205,7 @@ func (tr *TokenRequester) SaveToken(token *oauth2.Token, params providers.TokenR
 				Type:                 token.Type(),
 				ClientID:             params.ClientID,
 				ClientSecret:         params.ClientSecret,
-				OriginalRefreshToken: params.RefreshToken,
+				OriginalRefreshToken: token.RefreshToken,
 				CreatedAt:            xoutil.SqTime{time.Now()},
 			}
 		} else {
