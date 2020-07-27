@@ -197,6 +197,13 @@ func (tr *TokenRequester) SaveToken(token *oauth2.Token, params providers.TokenR
 	// @TODO: How to handle this better?
 	// - remove the checking of ErrNoRows
 
+	// grant_type=refresh_token
+	originalRefreshToken := params.RefreshToken
+	if params.RefreshToken == "" && token.RefreshToken != "" {
+		// grant_type=code
+		originalRefreshToken = params.RefreshToken
+	}
+
 	dbToken, err := tr.DBTokenFromDB(params)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
@@ -205,7 +212,7 @@ func (tr *TokenRequester) SaveToken(token *oauth2.Token, params providers.TokenR
 				Type:                 token.Type(),
 				ClientID:             params.ClientID,
 				ClientSecret:         params.ClientSecret,
-				OriginalRefreshToken: token.RefreshToken,
+				OriginalRefreshToken: originalRefreshToken,
 				CreatedAt:            xoutil.SqTime{time.Now()},
 			}
 		} else {
