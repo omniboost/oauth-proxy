@@ -70,6 +70,8 @@ func Load() Providers {
 				Scheme: "https",
 				Host:   "cloud.lightspeedapp.com",
 			}),
+		NewApicbase().
+			WithName("apicbase"),
 	}
 }
 
