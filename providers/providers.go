@@ -72,6 +72,12 @@ func Load() Providers {
 			}),
 		NewApicbase().
 			WithName("apicbase"),
+		NewBizcuit().
+			WithName("tst.bizcuit").
+			WithBaseURL(url.URL{
+				Scheme: "https",
+				Host:   "tst.bizcuit.nl",
+			}),
 	}
 }
 
