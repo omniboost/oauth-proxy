@@ -38,6 +38,12 @@ func Load() Providers {
 				Scheme: "https",
 				Host:   "start.exactonline.fr",
 			}),
+		NewExactOnline().
+			WithName("exactonline.de").
+			WithBaseURL(url.URL{
+				Scheme: "https",
+				Host:   "start.exactonline.de",
+			}),
 		NewQuickBooks().
 			WithName("quickbooks"),
 		NewIzettle().
