@@ -23,7 +23,6 @@ import (
 	"github.com/omniboost/oauth-proxy/providers"
 	"github.com/pkg/errors"
 	"github.com/xo/dburl"
-	"golang.org/x/oauth2"
 )
 
 func NewServer() (*Server, error) {
@@ -273,6 +272,7 @@ func (s *Server) NewProviderHandler(provider providers.Provider) http.HandlerFun
 			AccessToken:  token.AccessToken,
 			RefreshToken: token.RefreshToken,
 			ExpiresIn:    int(time.Until(token.Expiry).Seconds()),
+			RawMessages:  token.Raw,
 		}
 
 		// stream response body
@@ -307,7 +307,7 @@ func (s *Server) ErrorResponse(w http.ResponseWriter, err error) {
 	encoder.Encode(errorResponse)
 }
 
-func (s *Server) RequestToken(provider providers.Provider, params providers.TokenRequestParams) (*oauth2.Token, error) {
+func (s *Server) RequestToken(provider providers.Provider, params providers.TokenRequestParams) (*Token, error) {
 	tr, ok := s.tokenRequesters[provider.Name()]
 	if !ok {
 		// this should not happen because all tokenrequesters are loaded when

@@ -3,7 +3,10 @@ package oauthproxy
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"time"
 
 	"github.com/lytics/logrus"
@@ -67,7 +70,7 @@ func (tr *TokenRequester) Listen() {
 	}
 }
 
-func (tr *TokenRequester) CodeExchange(req TokenRequest) (*oauth2.Token, error) {
+func (tr *TokenRequester) CodeExchange(req TokenRequest) (*Token, error) {
 	// exchange code for token and save new token in db
 	params := req.params
 	logrus.Debugf("new code exchange request received (%s)", params.Code)
@@ -77,7 +80,13 @@ func (tr *TokenRequester) CodeExchange(req TokenRequest) (*oauth2.Token, error) 
 		opts = append(opts, oauth2.SetAuthURLParam("code_verifier", params.CodeVerifier))
 	}
 
-	token, err := tr.provider.Exchange(oauth2.NoContext, params, opts...)
+	// custom http client
+	client := &http.Client{}
+	rt := NewRoundTripperWithSave(http.DefaultTransport)
+	client.Transport = rt
+	ctx := context.WithValue(context.TODO(), oauth2.HTTPClient, client)
+	t, err := tr.provider.Exchange(ctx, params, opts...)
+	token := &Token{Token: t, Raw: map[string]json.RawMessage{}}
 	if err != nil {
 		logrus.Errorf("something went wrong exchanging code (%s)", params.Code)
 		return token, errors.WithStack(err)
@@ -89,6 +98,17 @@ func (tr *TokenRequester) CodeExchange(req TokenRequest) (*oauth2.Token, error) 
 	// it's not empty after a first time code exchange
 	params.RefreshToken = token.RefreshToken
 
+	b, err := ioutil.ReadAll(rt.LastResponseBody())
+	if err != nil {
+		return token, errors.WithStack(err)
+	}
+
+	// Add raw response body to token
+	err = json.Unmarshal(b, &token.Raw)
+	if err != nil {
+		return token, errors.WithStack(err)
+	}
+
 	err = tr.SaveToken(token, params)
 	if err != nil {
 		logrus.Errorf("something went wrong saving a new token to the database (%s)", token.RefreshToken)
@@ -97,7 +117,7 @@ func (tr *TokenRequester) CodeExchange(req TokenRequest) (*oauth2.Token, error) 
 	return token, errors.WithStack(err)
 }
 
-func (tr *TokenRequester) TokenRefresh(req TokenRequest) (*oauth2.Token, error) {
+func (tr *TokenRequester) TokenRefresh(req TokenRequest) (*Token, error) {
 	params := req.params
 	logrus.Debugf("new token refresh request received (%s)", params.RefreshToken)
 
@@ -143,7 +163,7 @@ func (tr *TokenRequester) Stop() {
 	// ??
 }
 
-func (tr *TokenRequester) Request(params providers.TokenRequestParams) (*oauth2.Token, error) {
+func (tr *TokenRequester) Request(params providers.TokenRequestParams) (*Token, error) {
 	request := tr.NewTokenRequest(params)
 	tr.requests <- request
 
@@ -178,22 +198,31 @@ func (tr *TokenRequester) DBTokenFromDB(params providers.TokenRequestParams) (*d
 	return dbToken, errors.WithStack(err)
 }
 
-func (tr *TokenRequester) TokenFromDB(params providers.TokenRequestParams) (*oauth2.Token, error) {
+func (tr *TokenRequester) TokenFromDB(params providers.TokenRequestParams) (*Token, error) {
 	dbToken, err := tr.DBTokenFromDB(params)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
 
-	token := &oauth2.Token{
-		TokenType:    dbToken.Type,
-		AccessToken:  dbToken.AccessToken,
-		RefreshToken: dbToken.RefreshToken,
-		Expiry:       dbToken.ExpiresAt.Time,
+	token := &Token{
+		Token: &oauth2.Token{
+			TokenType:    dbToken.Type,
+			AccessToken:  dbToken.AccessToken,
+			RefreshToken: dbToken.RefreshToken,
+			Expiry:       dbToken.ExpiresAt.Time,
+		},
+		Raw: map[string]json.RawMessage{},
 	}
-	return token, nil
+
+	if dbToken.CodeExchangeResponseBody == "" {
+		token.Raw = map[string]json.RawMessage{}
+	} else {
+		err = json.Unmarshal([]byte(dbToken.CodeExchangeResponseBody), &token.Raw)
+	}
+	return token, err
 }
 
-func (tr *TokenRequester) SaveToken(token *oauth2.Token, params providers.TokenRequestParams) error {
+func (tr *TokenRequester) SaveToken(token *Token, params providers.TokenRequestParams) error {
 	// @TODO: How to handle this better?
 	// - remove the checking of ErrNoRows
 
@@ -204,16 +233,22 @@ func (tr *TokenRequester) SaveToken(token *oauth2.Token, params providers.TokenR
 		originalRefreshToken = params.RefreshToken
 	}
 
+	b, err := json.Marshal(token.Raw)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
 	dbToken, err := tr.DBTokenFromDB(params)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			dbToken = &db.OauthToken{
-				App:                  tr.provider.Name(),
-				Type:                 token.Type(),
-				ClientID:             params.ClientID,
-				ClientSecret:         params.ClientSecret,
-				OriginalRefreshToken: originalRefreshToken,
-				CreatedAt:            xoutil.SqTime{time.Now()},
+				App:                      tr.provider.Name(),
+				Type:                     token.Type(),
+				ClientID:                 params.ClientID,
+				ClientSecret:             params.ClientSecret,
+				OriginalRefreshToken:     originalRefreshToken,
+				CreatedAt:                xoutil.SqTime{Time: time.Now()},
+				CodeExchangeResponseBody: string(b),
 			}
 		} else {
 			return errors.WithStack(err)
@@ -227,12 +262,12 @@ func (tr *TokenRequester) SaveToken(token *oauth2.Token, params providers.TokenR
 	// update only changes
 	dbToken.RefreshToken = token.RefreshToken
 	dbToken.AccessToken = token.AccessToken
-	dbToken.ExpiresAt = xoutil.SqTime{token.Expiry}
-	dbToken.UpdatedAt = xoutil.SqTime{time.Now()}
+	dbToken.ExpiresAt = xoutil.SqTime{Time: token.Expiry}
+	dbToken.UpdatedAt = xoutil.SqTime{Time: time.Now()}
 	return dbToken.Save(tr.db)
 }
 
-func (tr *TokenRequester) handleResults(request TokenRequest, token *oauth2.Token, err error) {
+func (tr *TokenRequester) handleResults(request TokenRequest, token *Token, err error) {
 	result := TokenRequestResult{
 		token: token,
 		err:   err,
@@ -240,8 +275,9 @@ func (tr *TokenRequester) handleResults(request TokenRequest, token *oauth2.Toke
 	request.result <- result
 }
 
-func (tr *TokenRequester) fetchAndSaveNewToken(params providers.TokenRequestParams) (*oauth2.Token, error) {
-	token, err := tr.FetchNewToken(params)
+func (tr *TokenRequester) fetchAndSaveNewToken(params providers.TokenRequestParams) (*Token, error) {
+	t, err := tr.FetchNewToken(params)
+	token := &Token{Token: t, Raw: map[string]json.RawMessage{}}
 	if err != nil {
 		logrus.Errorf("something went wrong fetching new token (%s): %s", params.RefreshToken, err)
 		return token, errors.WithStack(err)
@@ -263,6 +299,6 @@ type TokenRequest struct {
 }
 
 type TokenRequestResult struct {
-	token *oauth2.Token
+	token *Token
 	err   error
 }

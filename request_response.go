@@ -2,6 +2,8 @@ package oauthproxy
 
 import (
 	"encoding/json"
+
+	"github.com/pkg/errors"
 )
 
 type RawMessages map[string]json.RawMessage
@@ -81,6 +83,32 @@ func (rb *TokenResponseBody) UnmarshalJSON(data []byte) error {
 	}
 
 	return nil
+}
+
+func (rb TokenResponseBody) MarshalJSON() ([]byte, error) {
+	var err error
+
+	mappings := rb.RawMessages
+
+	// Overwrite old values
+	mappings["token_type"], err = json.Marshal(rb.TokenType)
+	if err != nil {
+		return []byte{}, errors.WithStack(err)
+	}
+	mappings["access_token"], err = json.Marshal(rb.AccessToken)
+	if err != nil {
+		return []byte{}, errors.WithStack(err)
+	}
+	mappings["refresh_token"], err = json.Marshal(rb.RefreshToken)
+	if err != nil {
+		return []byte{}, errors.WithStack(err)
+	}
+	mappings["expires_in"], err = json.Marshal(rb.ExpiresIn)
+	if err != nil {
+		return []byte{}, errors.WithStack(err)
+	}
+
+	return json.Marshal(mappings)
 }
 
 type ErrorResponse struct {
