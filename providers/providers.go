@@ -84,6 +84,8 @@ func Load() Providers {
 				Scheme: "https",
 				Host:   "tst.bizcuit.nl",
 			}),
+		NewCockpit().
+			WithName("cockpit"),
 	}
 }
 
