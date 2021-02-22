@@ -34,7 +34,7 @@ func (m Procountor) oauthConfig() *oauth2.Config {
 		ClientSecret: "",
 		Scopes:       []string{},
 		Endpoint: oauth2.Endpoint{
-			AuthURL:  "https://api.procountor.com/api/oauth/authz",
+			AuthURL:  "https://api.procountor.com/api/oauth/login",
 			TokenURL: "https://api.procountor.com/api/oauth/token",
 		},
 	}
@@ -45,6 +45,8 @@ func (m Procountor) Exchange(ctx context.Context, params TokenRequestParams, opt
 	config.ClientID = params.ClientID
 	config.ClientSecret = params.ClientSecret
 	config.RedirectURL = params.RedirectURL
+
+	opts = append(opts, oauth2.SetAuthURLParam("client_id", config.ClientID), oauth2.SetAuthURLParam("client_secret", config.ClientSecret))
 	return config.Exchange(ctx, params.Code, opts...)
 }
 
