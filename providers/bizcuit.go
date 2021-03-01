@@ -7,10 +7,6 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func init() {
-	oauth2.RegisterBrokenAuthHeaderProvider("https://tst.bizcuit.nl")
-}
-
 type Bizcuit struct {
 	name    string
 	baseURL url.URL
@@ -45,8 +41,9 @@ func (p Bizcuit) oauthConfig() *oauth2.Config {
 		ClientSecret: "",
 		Scopes:       []string{},
 		Endpoint: oauth2.Endpoint{
-			AuthURL:  p.baseURL.String() + "/auth",
-			TokenURL: p.baseURL.String() + "/openapi/oauth/token",
+			AuthURL:   p.baseURL.String() + "/auth",
+			TokenURL:  p.baseURL.String() + "/openapi/oauth/token",
+			AuthStyle: oauth2.AuthStyleInHeader,
 		},
 	}
 }

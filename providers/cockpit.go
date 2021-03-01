@@ -34,8 +34,9 @@ func (m Cockpit) oauthConfig() *oauth2.Config {
 		ClientSecret: "",
 		Scopes:       []string{},
 		Endpoint: oauth2.Endpoint{
-			AuthURL:  "",
-			TokenURL: "https://stage.posms.app.hd.digital/api/oAuth/token",
+			AuthURL:   "",
+			TokenURL:  "https://stage.posms.app.hd.digital/api/oAuth/token",
+			AuthStyle: oauth2.AuthStyleInHeader,
 		},
 	}
 }

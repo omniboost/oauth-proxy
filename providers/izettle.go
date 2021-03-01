@@ -6,10 +6,6 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func init() {
-	oauth2.RegisterBrokenAuthHeaderProvider("https://oauth.izettle.net")
-}
-
 type Izettle struct {
 	name string
 }
@@ -38,8 +34,9 @@ func (iz Izettle) oauthConfig() *oauth2.Config {
 		ClientSecret: "",
 		Scopes:       []string{},
 		Endpoint: oauth2.Endpoint{
-			AuthURL:  "https://oauth.izettle.net/authorize",
-			TokenURL: "https://oauth.izettle.net/token",
+			AuthURL:   "https://oauth.izettle.net/authorize",
+			TokenURL:  "https://oauth.izettle.net/token",
+			AuthStyle: oauth2.AuthStyleInHeader,
 		},
 	}
 }

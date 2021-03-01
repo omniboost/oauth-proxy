@@ -6,10 +6,6 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func init() {
-	oauth2.RegisterBrokenAuthHeaderProvider("https://app.minox.nl")
-}
-
 type Minox struct {
 	name string
 }
@@ -38,8 +34,9 @@ func (m Minox) oauthConfig() *oauth2.Config {
 		ClientSecret: "",
 		Scopes:       []string{},
 		Endpoint: oauth2.Endpoint{
-			AuthURL:  "https://app.minox.nl/oauth/authorize",
-			TokenURL: "https://app.minox.nl/oauth/token",
+			AuthURL:   "https://app.minox.nl/oauth/authorize",
+			TokenURL:  "https://app.minox.nl/oauth/token",
+			AuthStyle: oauth2.AuthStyleInHeader,
 		},
 	}
 }
