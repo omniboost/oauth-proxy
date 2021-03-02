@@ -259,6 +259,13 @@ func (tr *TokenRequester) SaveToken(token *Token, params providers.TokenRequestP
 		logrus.Debugf("found and existing token with id %d", dbToken.ID)
 	}
 
+	// Cockpit workaround
+	e := token.Extra("expires")
+	secs, ok := e.(float64)
+	if token.Expiry.IsZero() && ok {
+		token.Expiry = time.Now().Add(time.Duration(secs) * time.Second)
+	}
+
 	// update only changes
 	dbToken.RefreshToken = token.RefreshToken
 	dbToken.AccessToken = token.AccessToken
