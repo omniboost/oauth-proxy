@@ -55,7 +55,5 @@ func (rt *JSONTokenExchangeRoundTripper) RoundTrip(req *http.Request) (*http.Res
 	req.ContentLength = int64(len(b))
 	req.Header.Set("Content-Type", "application/json")
 	req.Body = ioutil.NopCloser(bytes.NewBuffer(b))
-
-	// req2 := req.Clone(req.Context())
 	return rt.rtp.RoundTrip(req)
 }
