@@ -2,10 +2,14 @@ package providers
 
 import (
 	"context"
+	"net/http"
 
 	"golang.org/x/oauth2"
 )
 
+// Cockpit has a non-standard Token Exchange. Instead of 'x-www-form-urlencoded'
+// they use 'application/json'. The custom NewJSONTokenExchangeClient
+// http.Client works around that
 type Cockpit struct {
 	name string
 }
@@ -57,5 +61,10 @@ func (m Cockpit) TokenSource(ctx context.Context, params TokenRequestParams) oau
 	token := &oauth2.Token{
 		RefreshToken: params.RefreshToken,
 	}
+
+	rtp := NewJSONTokenExchangeRoundTripper(http.DefaultTransport)
+	client := &http.Client{Transport: rtp}
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, client)
+
 	return config.TokenSource(ctx, token)
 }
