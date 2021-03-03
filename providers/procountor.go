@@ -34,8 +34,9 @@ func (m Procountor) oauthConfig() *oauth2.Config {
 		ClientSecret: "",
 		Scopes:       []string{},
 		Endpoint: oauth2.Endpoint{
-			AuthURL:  "https://api.procountor.com/api/oauth/login",
-			TokenURL: "https://api.procountor.com/api/oauth/token",
+			AuthURL:   "https://api.procountor.com/api/oauth/login",
+			TokenURL:  "https://api.procountor.com/api/oauth/token",
+			AuthStyle: oauth2.AuthStyleInParams,
 		},
 	}
 }
