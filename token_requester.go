@@ -109,7 +109,7 @@ func (tr *TokenRequester) CodeExchange(req TokenRequest) (*Token, error) {
 		return token, errors.WithStack(err)
 	}
 
-	err = tr.SaveToken(token, params)
+	_, err = tr.SaveToken(token, params)
 	if err != nil {
 		logrus.Errorf("something went wrong saving a new token to the database (%s)", token.RefreshToken)
 		return token, errors.WithStack(err)
@@ -214,15 +214,51 @@ func (tr *TokenRequester) TokenFromDB(params providers.TokenRequestParams) (*Tok
 		Raw: map[string]json.RawMessage{},
 	}
 
-	if dbToken.CodeExchangeResponseBody == "" {
+	if dbToken.CodeExchangeResponseBody.String == "" {
 		token.Raw = map[string]json.RawMessage{}
 	} else {
-		err = json.Unmarshal([]byte(dbToken.CodeExchangeResponseBody), &token.Raw)
+		err = json.Unmarshal([]byte(dbToken.CodeExchangeResponseBody.String), &token.Raw)
 	}
-	return token, err
+	return token, errors.WithStack(err)
 }
 
-func (tr *TokenRequester) SaveToken(token *Token, params providers.TokenRequestParams) error {
+func (tr *TokenRequester) SaveNewTokenRequest(params providers.TokenRequestParams) (*db.TokenRequest, error) {
+	tokenRequest := &db.TokenRequest{
+		ID:                  0,
+		App:                 tr.provider.Name(),
+		RequestClientID:     params.ClientID,
+		RequestClientSecret: params.ClientSecret,
+		RequestRefreshToken: params.RefreshToken,
+		RequestCode:         params.Code,
+		RequestRedirectURL:  params.RedirectURL,
+		RequestCodeVerifier: params.CodeVerifier,
+		ResponseAccessToken: "",
+		ResponseTokenType:   "",
+		ResponseExpiry:      xoutil.SqTime{},
+		ResponseExtra:       "",
+		CreatedAt:           xoutil.SqTime{Time: time.Now()},
+		UpdatedAt:           xoutil.SqTime{Time: time.Now()},
+	}
+
+	err := tokenRequest.Save(tr.db)
+	return tokenRequest, errors.WithStack(err)
+}
+
+func (tr *TokenRequester) AddTokenToTokenRequest(request *db.TokenRequest, token Token) (*db.TokenRequest, error) {
+	extra, err := json.Marshal(token.Raw)
+	if err != nil {
+		return request, errors.WithStack(err)
+	}
+	request.ResponseAccessToken = token.AccessToken
+	request.ResponseTokenType = token.TokenType
+	request.ResponseRefreshToken = token.RefreshToken
+	request.ResponseExpiry = xoutil.SqTime{Time: token.Expiry}
+	request.ResponseExtra = string(extra)
+	request.UpdatedAt = xoutil.SqTime{Time: time.Now()}
+	return request, request.Save(tr.db)
+}
+
+func (tr *TokenRequester) SaveToken(token *Token, params providers.TokenRequestParams) (db.OauthToken, error) {
 	// @TODO: How to handle this better?
 	// - remove the checking of ErrNoRows
 
@@ -235,7 +271,7 @@ func (tr *TokenRequester) SaveToken(token *Token, params providers.TokenRequestP
 
 	b, err := json.Marshal(token.Raw)
 	if err != nil {
-		return errors.WithStack(err)
+		return db.OauthToken{}, errors.WithStack(err)
 	}
 
 	dbToken, err := tr.DBTokenFromDB(params)
@@ -248,10 +284,10 @@ func (tr *TokenRequester) SaveToken(token *Token, params providers.TokenRequestP
 				ClientSecret:             params.ClientSecret,
 				OriginalRefreshToken:     originalRefreshToken,
 				CreatedAt:                xoutil.SqTime{Time: time.Now()},
-				CodeExchangeResponseBody: string(b),
+				CodeExchangeResponseBody: sql.NullString{string(b), true},
 			}
 		} else {
-			return errors.WithStack(err)
+			return db.OauthToken{}, errors.WithStack(err)
 		}
 	}
 
@@ -271,7 +307,7 @@ func (tr *TokenRequester) SaveToken(token *Token, params providers.TokenRequestP
 	dbToken.AccessToken = token.AccessToken
 	dbToken.ExpiresAt = xoutil.SqTime{Time: token.Expiry}
 	dbToken.UpdatedAt = xoutil.SqTime{Time: time.Now()}
-	return dbToken.Save(tr.db)
+	return *dbToken, dbToken.Save(tr.db)
 }
 
 func (tr *TokenRequester) handleResults(request TokenRequest, token *Token, err error) {
@@ -283,6 +319,11 @@ func (tr *TokenRequester) handleResults(request TokenRequest, token *Token, err 
 }
 
 func (tr *TokenRequester) fetchAndSaveNewToken(params providers.TokenRequestParams) (*Token, error) {
+	trDB, err := tr.SaveNewTokenRequest(params)
+	if err != nil {
+		return &Token{}, errors.WithStack(err)
+	}
+
 	t, err := tr.FetchNewToken(params)
 	token := &Token{Token: t, Raw: map[string]json.RawMessage{}}
 	if err != nil {
@@ -290,8 +331,13 @@ func (tr *TokenRequester) fetchAndSaveNewToken(params providers.TokenRequestPara
 		return token, errors.WithStack(err)
 	}
 
+	trDB, err = tr.AddTokenToTokenRequest(trDB, *token)
+	if err != nil {
+		return token, errors.WithStack(err)
+	}
+
 	logrus.Debugf("saving new token to database (%s)", params.RefreshToken)
-	err = tr.SaveToken(token, params)
+	_, err = tr.SaveToken(token, params)
 	if err != nil {
 		logrus.Errorf("something went wrong saving a new token to the database (%s): %s", params.RefreshToken, err)
 		return token, errors.WithStack(err)
