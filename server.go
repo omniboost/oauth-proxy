@@ -356,6 +356,15 @@ func (s *Server) GetTokenRequestParamsFromFormRequest(r *http.Request) (provider
 		return trp, errors.WithStack(err)
 	}
 
+	raw := map[string]json.RawMessage{}
+	for k := range vals {
+		b, err := json.Marshal(vals.Get(k))
+		if err != nil {
+			return trp, errors.WithStack(err)
+		}
+		raw[k] = json.RawMessage(b)
+	}
+
 	// client_id and client_secret can be in authorization header or in form values
 	// assume form values and then check authorization header
 	params := providers.TokenRequestParams{
@@ -365,6 +374,7 @@ func (s *Server) GetTokenRequestParamsFromFormRequest(r *http.Request) (provider
 		Code:         vals.Get("code"),
 		RedirectURL:  vals.Get("redirect_uri"),
 		CodeVerifier: vals.Get("code_verifier"),
+		Raw:          raw,
 	}
 
 	auth := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
@@ -403,5 +413,6 @@ func (s *Server) GetTokenRequestParamsFromJSONRequest(r *http.Request) (provider
 		Code:         reqBody.Code,
 		RedirectURL:  reqBody.RedirectURL,
 		CodeVerifier: reqBody.CodeVerifier,
+		Raw:          reqBody.RawMessages,
 	}, nil
 }

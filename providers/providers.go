@@ -2,6 +2,7 @@ package providers
 
 import (
 	"context"
+	"encoding/json"
 	"net/url"
 
 	"golang.org/x/oauth2"
@@ -86,6 +87,8 @@ func Load() Providers {
 			}),
 		NewCockpit().
 			WithName("cockpit"),
+		NewNetSuite().
+			WithName("netsuite"),
 	}
 }
 
@@ -96,4 +99,6 @@ type TokenRequestParams struct {
 	Code         string
 	RedirectURL  string
 	CodeVerifier string
+
+	Raw map[string]json.RawMessage
 }
