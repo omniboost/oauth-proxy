@@ -3,6 +3,7 @@ package providers
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/url"
 
 	"golang.org/x/oauth2"
@@ -89,6 +90,8 @@ func Load() Providers {
 			WithName("cockpit"),
 		NewNetSuite().
 			WithName("netsuite"),
+		NewAmadeus().
+			WithName("amadeus"),
 	}
 }
 
@@ -100,5 +103,6 @@ type TokenRequestParams struct {
 	RedirectURL  string
 	CodeVerifier string
 
-	Raw map[string]json.RawMessage
+	Raw             map[string]json.RawMessage
+	OriginalRequest *http.Request
 }

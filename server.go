@@ -368,13 +368,14 @@ func (s *Server) GetTokenRequestParamsFromFormRequest(r *http.Request) (provider
 	// client_id and client_secret can be in authorization header or in form values
 	// assume form values and then check authorization header
 	params := providers.TokenRequestParams{
-		ClientID:     vals.Get("client_id"),
-		ClientSecret: vals.Get("client_secret"),
-		RefreshToken: vals.Get("refresh_token"),
-		Code:         vals.Get("code"),
-		RedirectURL:  vals.Get("redirect_uri"),
-		CodeVerifier: vals.Get("code_verifier"),
-		Raw:          raw,
+		ClientID:        vals.Get("client_id"),
+		ClientSecret:    vals.Get("client_secret"),
+		RefreshToken:    vals.Get("refresh_token"),
+		Code:            vals.Get("code"),
+		RedirectURL:     vals.Get("redirect_uri"),
+		CodeVerifier:    vals.Get("code_verifier"),
+		Raw:             raw,
+		OriginalRequest: r,
 	}
 
 	auth := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
@@ -407,12 +408,13 @@ func (s *Server) GetTokenRequestParamsFromJSONRequest(r *http.Request) (provider
 
 	// create a tokenrequest for the provider
 	return providers.TokenRequestParams{
-		ClientID:     reqBody.ClientID,
-		ClientSecret: reqBody.ClientSecret,
-		RefreshToken: reqBody.RefreshToken,
-		Code:         reqBody.Code,
-		RedirectURL:  reqBody.RedirectURL,
-		CodeVerifier: reqBody.CodeVerifier,
-		Raw:          reqBody.RawMessages,
+		ClientID:        reqBody.ClientID,
+		ClientSecret:    reqBody.ClientSecret,
+		RefreshToken:    reqBody.RefreshToken,
+		Code:            reqBody.Code,
+		RedirectURL:     reqBody.RedirectURL,
+		CodeVerifier:    reqBody.CodeVerifier,
+		Raw:             reqBody.RawMessages,
+		OriginalRequest: r,
 	}, nil
 }
