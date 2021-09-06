@@ -29,7 +29,7 @@ func (ns NetSuite) Name() string {
 }
 
 func (ns NetSuite) Route() string {
-	return "/" + ns.name + "/oauth2/authorize.nl"
+	return "/" + ns.name + "/oauth2/v1/token"
 }
 
 func (ns NetSuite) oauthConfig() *oauth2.Config {
@@ -51,6 +51,12 @@ func (ns NetSuite) Exchange(ctx context.Context, params TokenRequestParams, opts
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
+
+	// also try query params
+	if company == "" {
+		company = params.OriginalRequest.URL.Query().Get("company")
+	}
+
 	config := ns.oauthConfig()
 	config.Endpoint.TokenURL = strings.Replace(config.Endpoint.TokenURL, "{{.account_id}}", company, -1)
 	config.ClientID = params.ClientID
@@ -60,7 +66,16 @@ func (ns NetSuite) Exchange(ctx context.Context, params TokenRequestParams, opts
 }
 
 func (ns NetSuite) TokenSource(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
+	company := ""
+	_ = json.Unmarshal(params.Raw["company"], &company)
+
+	// also try query params
+	if company == "" {
+		company = params.OriginalRequest.URL.Query().Get("company")
+	}
+
 	config := ns.oauthConfig()
+	config.Endpoint.TokenURL = strings.Replace(config.Endpoint.TokenURL, "{{.account_id}}", company, -1)
 	config.ClientID = params.ClientID
 	config.ClientSecret = params.ClientSecret
 	config.RedirectURL = params.RedirectURL
