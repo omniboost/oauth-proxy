@@ -20,6 +20,9 @@ func NewRoundTripperWithSave(rtp http.RoundTripper) *RoundTripperWithSave {
 
 func (rt *RoundTripperWithSave) RoundTrip(req *http.Request) (*http.Response, error) {
 	resp, err := rt.rtp.RoundTrip(req)
+	if err != nil {
+		return resp, err
+	}
 
 	b, err := ioutil.ReadAll(resp.Body)
 	resp.Body = ioutil.NopCloser(bytes.NewBuffer(b))
