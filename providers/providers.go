@@ -92,6 +92,8 @@ func Load() Providers {
 			WithName("netsuite"),
 		NewAmadeus().
 			WithName("amadeus"),
+		NewFortnox().
+			WithName("fortnox"),
 	}
 }
 

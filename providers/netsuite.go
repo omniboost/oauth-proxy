@@ -57,6 +57,8 @@ func (ns NetSuite) Exchange(ctx context.Context, params TokenRequestParams, opts
 		company = params.OriginalRequest.URL.Query().Get("company")
 	}
 
+	company = strings.Replace(company, "_", "-", -1)
+
 	config := ns.oauthConfig()
 	config.Endpoint.TokenURL = strings.Replace(config.Endpoint.TokenURL, "{{.account_id}}", company, -1)
 	config.ClientID = params.ClientID
@@ -73,6 +75,8 @@ func (ns NetSuite) TokenSource(ctx context.Context, params TokenRequestParams) o
 	if company == "" {
 		company = params.OriginalRequest.URL.Query().Get("company")
 	}
+
+	company = strings.Replace(company, "_", "-", -1)
 
 	config := ns.oauthConfig()
 	config.Endpoint.TokenURL = strings.Replace(config.Endpoint.TokenURL, "{{.account_id}}", company, -1)
