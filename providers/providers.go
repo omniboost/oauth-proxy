@@ -94,6 +94,8 @@ func Load() Providers {
 			WithName("amadeus"),
 		NewFortnox().
 			WithName("fortnox"),
+		NewAsperion().
+			WithName("asperion"),
 	}
 }
 
