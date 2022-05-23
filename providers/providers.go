@@ -96,6 +96,10 @@ func Load() Providers {
 			WithName("fortnox"),
 		NewAsperion().
 			WithName("asperion"),
+		NewVismaOnline().
+			WithName("vismaonline").
+			WithAuthURL("https://identity-sandbox.test.vismaonline.com/connect/authorize").
+			WithTokenURL("https://identity-sandbox.test.vismaonline.com/connect/token"),
 	}
 }
 
