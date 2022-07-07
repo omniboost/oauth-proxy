@@ -37,7 +37,7 @@ func (ab Apicbase) oauthConfig() *oauth2.Config {
 		Scopes:       []string{},
 		Endpoint: oauth2.Endpoint{
 			AuthURL:  "",
-			TokenURL: "https://app.apicbase.com/oauth/token",
+			TokenURL: "https://app.apicbase.com/oauth/token/",
 		},
 	}
 }
