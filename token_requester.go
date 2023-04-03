@@ -13,7 +13,6 @@ import (
 	"github.com/omniboost/oauth-proxy/db"
 	"github.com/omniboost/oauth-proxy/providers"
 	"github.com/pkg/errors"
-	"github.com/xo/xoutil"
 	"golang.org/x/oauth2"
 )
 
@@ -209,7 +208,7 @@ func (tr *TokenRequester) TokenFromDB(params providers.TokenRequestParams) (*Tok
 			TokenType:    dbToken.Type,
 			AccessToken:  dbToken.AccessToken,
 			RefreshToken: dbToken.RefreshToken,
-			Expiry:       dbToken.ExpiresAt.Time,
+			Expiry:       dbToken.ExpiresAt,
 		},
 		Raw: map[string]json.RawMessage{},
 	}
@@ -234,10 +233,10 @@ func (tr *TokenRequester) SaveNewTokenRequest(params providers.TokenRequestParam
 		RequestCodeVerifier: params.CodeVerifier,
 		ResponseAccessToken: "",
 		ResponseTokenType:   "",
-		ResponseExpiry:      xoutil.SqTime{},
+		ResponseExpiry:      time.Time{},
 		ResponseExtra:       "",
-		CreatedAt:           xoutil.SqTime{Time: time.Now()},
-		UpdatedAt:           xoutil.SqTime{Time: time.Now()},
+		CreatedAt:           time.Now(),
+		UpdatedAt:           time.Now(),
 	}
 
 	err := tokenRequest.Save(tr.db)
@@ -252,9 +251,9 @@ func (tr *TokenRequester) AddTokenToTokenRequest(request *db.TokenRequest, token
 	request.ResponseAccessToken = token.AccessToken
 	request.ResponseTokenType = token.TokenType
 	request.ResponseRefreshToken = token.RefreshToken
-	request.ResponseExpiry = xoutil.SqTime{Time: token.Expiry}
+	request.ResponseExpiry = token.Expiry
 	request.ResponseExtra = string(extra)
-	request.UpdatedAt = xoutil.SqTime{Time: time.Now()}
+	request.UpdatedAt = time.Now()
 	return request, request.Save(tr.db)
 }
 
@@ -283,7 +282,7 @@ func (tr *TokenRequester) SaveToken(token *Token, params providers.TokenRequestP
 				ClientID:                 params.ClientID,
 				ClientSecret:             params.ClientSecret,
 				OriginalRefreshToken:     originalRefreshToken,
-				CreatedAt:                xoutil.SqTime{Time: time.Now()},
+				CreatedAt:                time.Now(),
 				CodeExchangeResponseBody: sql.NullString{string(b), true},
 			}
 		} else {
@@ -305,8 +304,8 @@ func (tr *TokenRequester) SaveToken(token *Token, params providers.TokenRequestP
 	// update only changes
 	dbToken.RefreshToken = token.RefreshToken
 	dbToken.AccessToken = token.AccessToken
-	dbToken.ExpiresAt = xoutil.SqTime{Time: token.Expiry}
-	dbToken.UpdatedAt = xoutil.SqTime{Time: time.Now()}
+	dbToken.ExpiresAt = token.Expiry
+	dbToken.UpdatedAt = time.Now()
 	return *dbToken, dbToken.Save(tr.db)
 }
 

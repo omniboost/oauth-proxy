@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	_ "modernc.org/sqlite"
 )
 
 // XODB is the common interface for database operations that can be used with

@@ -23,6 +23,7 @@ import (
 	"github.com/omniboost/oauth-proxy/providers"
 	"github.com/pkg/errors"
 	"github.com/xo/dburl"
+	"modernc.org/sqlite"
 )
 
 func NewServer() (*Server, error) {
@@ -130,8 +131,10 @@ func (s *Server) NewDB() (*sql.DB, error) {
 			return nil, errors.WithStack(err)
 		}
 	}
-	url := fmt.Sprintf("sqlite://%s?loc=auto", path)
-	return dburl.Open(url)
+	sql.Register("moderncsqlite", &sqlite.Driver{})
+	url := fmt.Sprintf("moderncsqlite://%s?loc=auto&_time_format=sqlite", path)
+	db, err := dburl.Open(url)
+	return db, errors.WithStack(err)
 }
 
 func (s *Server) SetDB(db *sql.DB) {

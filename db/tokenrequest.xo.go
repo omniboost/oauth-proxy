@@ -5,8 +5,7 @@ package db
 
 import (
 	"errors"
-
-	"github.com/xo/xoutil"
+	"time"
 )
 
 // TokenRequest represents a row from 'token_requests'.
@@ -22,10 +21,10 @@ type TokenRequest struct {
 	ResponseAccessToken  string        `json:"response_access_token"`  // response_access_token
 	ResponseTokenType    string        `json:"response_token_type"`    // response_token_type
 	ResponseRefreshToken string        `json:"response_refresh_token"` // response_refresh_token
-	ResponseExpiry       xoutil.SqTime `json:"response_expiry"`        // response_expiry
+	ResponseExpiry       time.Time `json:"response_expiry"`        // response_expiry
 	ResponseExtra        string        `json:"response_extra"`         // response_extra
-	CreatedAt            xoutil.SqTime `json:"created_at"`             // created_at
-	UpdatedAt            xoutil.SqTime `json:"updated_at"`             // updated_at
+	CreatedAt            time.Time `json:"created_at"`             // created_at
+	UpdatedAt            time.Time `json:"updated_at"`             // updated_at
 
 	// xo fields
 	_exists, _deleted bool

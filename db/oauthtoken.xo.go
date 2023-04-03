@@ -6,8 +6,7 @@ package db
 import (
 	"database/sql"
 	"errors"
-
-	"github.com/xo/xoutil"
+	"time"
 )
 
 // OauthToken represents a row from 'oauth_tokens'.
@@ -20,9 +19,9 @@ type OauthToken struct {
 	OriginalRefreshToken     string         `json:"original_refresh_token"`      // original_refresh_token
 	RefreshToken             string         `json:"refresh_token"`               // refresh_token
 	AccessToken              string         `json:"access_token"`                // access_token
-	ExpiresAt                xoutil.SqTime  `json:"expires_at"`                  // expires_at
-	CreatedAt                xoutil.SqTime  `json:"created_at"`                  // created_at
-	UpdatedAt                xoutil.SqTime  `json:"updated_at"`                  // updated_at
+	ExpiresAt                time.Time  `json:"expires_at"`                  // expires_at
+	CreatedAt                time.Time  `json:"created_at"`                  // created_at
+	UpdatedAt                time.Time  `json:"updated_at"`                  // updated_at
 	CodeExchangeResponseBody sql.NullString `json:"code_exchange_response_body"` // code_exchange_response_body
 
 	// xo fields
