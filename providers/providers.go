@@ -100,6 +100,8 @@ func Load() Providers {
 			WithName("vismaonline").
 			WithAuthURL("https://identity-sandbox.test.vismaonline.com/connect/authorize").
 			WithTokenURL("https://identity-sandbox.test.vismaonline.com/connect/token"),
+		NewVismaOnline().
+			WithName("adsolut"),
 	}
 }
 
