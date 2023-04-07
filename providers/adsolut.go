@@ -57,7 +57,7 @@ func (v Adsolut) oauthConfig() *oauth2.Config {
 		Endpoint: oauth2.Endpoint{
 			AuthURL:   authURL,
 			TokenURL:  tokenURL,
-			AuthStyle: oauth2.AuthStyleInHeader,
+			AuthStyle: oauth2.AuthStyleInParams,
 		},
 	}
 }
