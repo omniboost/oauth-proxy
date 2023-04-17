@@ -132,7 +132,7 @@ func (s *Server) NewDB() (*sql.DB, error) {
 		}
 	}
 	sql.Register("moderncsqlite", &sqlite.Driver{})
-	url := fmt.Sprintf("moderncsqlite://%s?loc=auto&_time_format=sqlite", path)
+	url := fmt.Sprintf("moderncsqlite://%s?loc=auto&_time_format=sqlite&_pragma=busy_timeout%3d80000&_pragma=journal_mode(WAL)", path)
 	db, err := dburl.Open(url)
 	return db, errors.WithStack(err)
 }
