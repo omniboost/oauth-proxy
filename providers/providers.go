@@ -102,6 +102,8 @@ func Load() Providers {
 			WithTokenURL("https://identity-sandbox.test.vismaonline.com/connect/token"),
 		NewAdsolut().
 			WithName("adsolut"),
+		NewChronogolf().
+			WithName("chronogolf"),
 	}
 }
 
