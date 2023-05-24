@@ -104,6 +104,12 @@ func Load() Providers {
 			WithName("adsolut"),
 		NewChronogolf().
 			WithName("chronogolf"),
+		NewDatev().
+			WithName("datev"),
+		NewDatev().
+			WithName("datev-sandbox").
+			WithAuthURL("https://login.datev.de/openidsandbox/authorize").
+			WithTokenURL("https://sandbox-api.datev.de/token"),
 	}
 }
 
