@@ -110,6 +110,8 @@ func Load() Providers {
 			WithName("datev-sandbox").
 			WithAuthURL("https://login.datev.de/openidsandbox/authorize").
 			WithTokenURL("https://sandbox-api.datev.de/token"),
+		NewBookingExperts().
+			WithName("bookingexperts"),
 	}
 }
 
