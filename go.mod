@@ -1,8 +1,9 @@
 module github.com/omniboost/oauth-proxy
 
-go 1.18
+go 1.21
 
 require (
+	github.com/coreos/go-oidc/v3 v3.6.0
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.2.7
 	github.com/lytics/logrus v0.0.0-20170528191427-4389a17ed024
@@ -21,6 +22,7 @@ require (
 	github.com/BurntSushi/toml v1.3.2 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/fsnotify/fsnotify v1.4.7 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.1-0.20230907165853-260aa2669b7e // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
@@ -36,7 +38,6 @@ require (
 	github.com/spf13/afero v1.1.2 // indirect
 	github.com/spf13/cast v1.2.0 // indirect
 	github.com/spf13/jwalterweatherman v1.0.0 // indirect
-	github.com/stretchr/testify v1.5.1 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v0.0.0-20170224212429-dcecefd839c4 // indirect
 	golang.org/x/crypto v0.13.0 // indirect

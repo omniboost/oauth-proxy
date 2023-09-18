@@ -105,11 +105,15 @@ func Load() Providers {
 		NewChronogolf().
 			WithName("chronogolf"),
 		NewDatev().
-			WithName("datev"),
+			WithName("datev").
+			WithRemoteKeysetURL("https://api.datev.de/certs").
+			WithIssuerURL("https://login.datev.de/openid"),
 		NewDatev().
 			WithName("datev-sandbox").
 			WithAuthURL("https://login.datev.de/openidsandbox/authorize").
-			WithTokenURL("https://sandbox-api.datev.de/token"),
+			WithTokenURL("https://sandbox-api.datev.de/token").
+			WithRemoteKeysetURL("https://sandbox-api.datev.de/certs").
+			WithIssuerURL("https://login.datev.de/openidsandbox"),
 		NewBookingExperts().
 			WithName("bookingexperts"),
 	}

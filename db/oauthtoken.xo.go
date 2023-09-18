@@ -47,13 +47,13 @@ func (ot *OauthToken) Insert(ctx context.Context, db DB) error {
 	}
 	// insert (primary key generated and returned by database)
 	const sqlstr = `INSERT INTO oauth_tokens (` +
-		`id, app, type, client_id, client_secret, original_refresh_token, refresh_token, access_token, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier` +
+		`app, type, client_id, client_secret, original_refresh_token, refresh_token, access_token, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier` +
 		`) VALUES (` +
-		`$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13` +
+		`$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12` +
 		`)`
 	// run
 	logf(sqlstr, ot.App, ot.Type, ot.ClientID, ot.ClientSecret, ot.OriginalRefreshToken, ot.RefreshToken, ot.AccessToken, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt, ot.CodeExchangeResponseBody, ot.CodeVerifier)
-	res, err := db.ExecContext(ctx, sqlstr, ot.ID, ot.App, ot.Type, ot.ClientID, ot.ClientSecret, ot.OriginalRefreshToken, ot.RefreshToken, ot.AccessToken, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt, ot.CodeExchangeResponseBody, ot.CodeVerifier)
+	res, err := db.ExecContext(ctx, sqlstr, ot.App, ot.Type, ot.ClientID, ot.ClientSecret, ot.OriginalRefreshToken, ot.RefreshToken, ot.AccessToken, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt, ot.CodeExchangeResponseBody, ot.CodeVerifier)
 	if err != nil {
 		return logerror(err)
 	}

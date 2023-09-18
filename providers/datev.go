@@ -3,13 +3,16 @@ package providers
 import (
 	"context"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
 )
 
 type Datev struct {
-	name     string
-	authURL  string
-	tokenURL string
+	name            string
+	authURL         string
+	tokenURL        string
+	remoteKeysetURL string
+	issuerURL       string
 }
 
 func NewDatev() *Datev {
@@ -28,6 +31,16 @@ func (v Datev) WithAuthURL(u string) Datev {
 
 func (v Datev) WithTokenURL(u string) Datev {
 	v.tokenURL = u
+	return v
+}
+
+func (v Datev) WithRemoteKeysetURL(u string) Datev {
+	v.remoteKeysetURL = u
+	return v
+}
+
+func (v Datev) WithIssuerURL(u string) Datev {
+	v.issuerURL = u
 	return v
 }
 
@@ -79,4 +92,12 @@ func (v Datev) TokenSource(ctx context.Context, params TokenRequestParams) oauth
 		RefreshToken: params.RefreshToken,
 	}
 	return config.TokenSource(ctx, token)
+}
+
+func (v Datev) IDTokenVerifier(params TokenRequestParams) *oidc.IDTokenVerifier {
+	keySet := oidc.NewRemoteKeySet(context.Background(), v.remoteKeysetURL)
+	return oidc.NewVerifier(v.issuerURL, keySet, &oidc.Config{
+		ClientID:             params.ClientID,
+		SupportedSigningAlgs: []string{"RS256"},
+	})
 }

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/lytics/logrus"
 	"github.com/omniboost/oauth-proxy/db"
 	"github.com/omniboost/oauth-proxy/providers"
@@ -91,6 +92,19 @@ func (tr *TokenRequester) CodeExchange(req TokenRequest) (*Token, error) {
 		return token, errors.WithStack(err)
 	}
 
+	// check id token if present
+	idToken, ok := t.Extra("id_token").(string)
+	if ok {
+		if v, ok := tr.provider.(interface {
+			IDTokenVerifier(providers.TokenRequestParams) *oidc.IDTokenVerifier
+		}); ok {
+			_, err := v.IDTokenVerifier(params).Verify(context.Background(), idToken)
+			if err != nil {
+				return token, errors.WithStack(err)
+			}
+		}
+	}
+
 	logrus.Debugf("saving new token to database (%s)", token.RefreshToken)
 
 	// params.RefreshToken is used for looking up the entry in the db. Make sure
@@ -113,6 +127,7 @@ func (tr *TokenRequester) CodeExchange(req TokenRequest) (*Token, error) {
 		logrus.Errorf("something went wrong saving a new token to the database (%s)", token.RefreshToken)
 		return token, errors.WithStack(err)
 	}
+
 	return token, errors.WithStack(err)
 }
 
@@ -194,8 +209,25 @@ func (tr *TokenRequester) NewTokenRequest(params providers.TokenRequestParams) T
 func (tr *TokenRequester) FetchNewToken(params providers.TokenRequestParams) (*oauth2.Token, error) {
 	// retrieve new token
 	logrus.Debugf("requesting new token with the following params :%+v", params)
-	tokenSource := tr.provider.TokenSource(context.Background(), params)
-	return tokenSource.Token()
+	token, err := tr.provider.TokenSource(context.Background(), params).Token()
+	if err != nil {
+		return token, errors.WithStack(err)
+	}
+
+	// check id token if present
+	idToken, ok := token.Extra("id_token").(string)
+	if ok {
+		if v, ok := tr.provider.(interface {
+			IDTokenVerifier(providers.TokenRequestParams) *oidc.IDTokenVerifier
+		}); ok {
+			_, err := v.IDTokenVerifier(params).Verify(context.Background(), idToken)
+			if err != nil {
+				return token, errors.WithStack(err)
+			}
+		}
+	}
+
+	return token, nil
 }
 
 func (tr *TokenRequester) DBTokenFromDB(params providers.TokenRequestParams) (*db.OauthToken, error) {

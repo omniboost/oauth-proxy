@@ -309,8 +309,19 @@ func (s *Server) ErrorResponse(w http.ResponseWriter, err error) {
 		ErrorURI:         "",
 	}
 
-	encoder := json.NewEncoder(w)
-	encoder.Encode(errorResponse)
+	var buf bytes.Buffer
+	rsp := io.MultiWriter(w, &buf)
+
+	encoder := json.NewEncoder(rsp)
+	err = encoder.Encode(errorResponse)
+	if err != nil {
+		logrus.Error(err)
+	}
+
+	logrus.Debug("Server outgoing response:")
+	for _, s := range strings.Split(buf.String(), "\r\n") {
+		logrus.Debug(s)
+	}
 }
 
 func (s *Server) RequestToken(provider providers.Provider, params providers.TokenRequestParams) (*Token, error) {
