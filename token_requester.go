@@ -120,7 +120,8 @@ func (tr *TokenRequester) TokenRefresh(req TokenRequest) (*Token, error) {
 	params := req.params
 	logrus.Debugf("new token refresh request received (%s)", params.RefreshToken)
 
-	token, err := tr.TokenFromDB(params)
+	token := &Token{}
+	dbToken, err := tr.DBTokenFromDB(params)
 	if errors.Cause(err) == sql.ErrNoRows {
 		// no results in db: request new token
 		logrus.Debugf("couldn't find refresh token in database, requesting new token (%s)", params.RefreshToken)
@@ -139,15 +140,26 @@ func (tr *TokenRequester) TokenRefresh(req TokenRequest) (*Token, error) {
 	}
 
 	// existing token, check if still valid
+	token, err = tr.DBTokenToOauth2Token(dbToken)
+	if err != nil {
+		return token, errors.WithStack(err)
+	}
+
 	if token.Valid() {
 		// token is valid, use that
+		logrus.Debugf("token valid until: %s", token.Expiry.String())
 		logrus.Debugf("sending new token to requester (%s)", params.RefreshToken)
 		return token, errors.WithStack(err)
 	}
 
 	logrus.Debugf("token (%s) isn't valid anymore, fetching new token", params.RefreshToken)
-	params.RefreshToken = token.RefreshToken
 	logrus.Debugf("using latest refresh token (%s) to request new token", params.RefreshToken)
+
+	params.RefreshToken = token.RefreshToken
+	// if now code_verifier is sent, use the one used last time
+	if params.CodeVerifier == "" && dbToken.CodeVerifier != "" {
+		params.CodeVerifier = dbToken.CodeVerifier
+	}
 	token, err = tr.fetchAndSaveNewToken(params)
 	if err != nil {
 		return token, errors.WithStack(err)
@@ -182,17 +194,17 @@ func (tr *TokenRequester) NewTokenRequest(params providers.TokenRequestParams) T
 func (tr *TokenRequester) FetchNewToken(params providers.TokenRequestParams) (*oauth2.Token, error) {
 	// retrieve new token
 	logrus.Debugf("requesting new token with the following params :%+v", params)
-	tokenSource := tr.provider.TokenSource(oauth2.NoContext, params)
+	tokenSource := tr.provider.TokenSource(context.Background(), params)
 	return tokenSource.Token()
 }
 
 func (tr *TokenRequester) DBTokenFromDB(params providers.TokenRequestParams) (*db.OauthToken, error) {
 	// first check if there's an entry with the current refresh token
-	dbToken, err := db.OauthTokenByAppClientIDClientSecretRefreshToken(tr.db, tr.provider.Name(), params.ClientID, params.ClientSecret, params.RefreshToken)
+	dbToken, err := db.OauthTokenByAppClientIDClientSecretRefreshToken(context.Background(), tr.db, tr.provider.Name(), params.ClientID, params.ClientSecret, params.RefreshToken)
 	if errors.Cause(err) == sql.ErrNoRows {
 		// no result, check if there's an entry based on the original refresh
 		// token
-		dbToken, err = db.OauthTokenByAppClientIDClientSecretOriginalRefreshToken(tr.db, tr.provider.Name(), params.ClientID, params.ClientSecret, params.RefreshToken)
+		dbToken, err = db.OauthTokenByAppClientIDClientSecretOriginalRefreshToken(context.Background(), tr.db, tr.provider.Name(), params.ClientID, params.ClientSecret, params.RefreshToken)
 	}
 	return dbToken, errors.WithStack(err)
 }
@@ -203,12 +215,17 @@ func (tr *TokenRequester) TokenFromDB(params providers.TokenRequestParams) (*Tok
 		return nil, errors.WithStack(err)
 	}
 
+	return tr.DBTokenToOauth2Token(dbToken)
+}
+
+func (tr *TokenRequester) DBTokenToOauth2Token(dbToken *db.OauthToken) (*Token, error) {
+	var err error
 	token := &Token{
 		Token: &oauth2.Token{
 			TokenType:    dbToken.Type,
 			AccessToken:  dbToken.AccessToken,
 			RefreshToken: dbToken.RefreshToken,
-			Expiry:       dbToken.ExpiresAt,
+			Expiry:       dbToken.ExpiresAt.Time(),
 		},
 		Raw: map[string]json.RawMessage{},
 	}
@@ -233,13 +250,13 @@ func (tr *TokenRequester) SaveNewTokenRequest(params providers.TokenRequestParam
 		RequestCodeVerifier: params.CodeVerifier,
 		ResponseAccessToken: "",
 		ResponseTokenType:   "",
-		ResponseExpiry:      time.Time{},
+		ResponseExpiry:      db.NewTime(time.Time{}),
 		ResponseExtra:       "",
-		CreatedAt:           time.Now(),
-		UpdatedAt:           time.Now(),
+		CreatedAt:           db.NewTime(time.Now()),
+		UpdatedAt:           db.NewTime(time.Now()),
 	}
 
-	err := tokenRequest.Save(tr.db)
+	err := tokenRequest.Save(context.Background(), tr.db)
 	return tokenRequest, errors.WithStack(err)
 }
 
@@ -251,10 +268,10 @@ func (tr *TokenRequester) AddTokenToTokenRequest(request *db.TokenRequest, token
 	request.ResponseAccessToken = token.AccessToken
 	request.ResponseTokenType = token.TokenType
 	request.ResponseRefreshToken = token.RefreshToken
-	request.ResponseExpiry = token.Expiry
+	request.ResponseExpiry = db.NewTime(token.Expiry)
 	request.ResponseExtra = string(extra)
-	request.UpdatedAt = time.Now()
-	return request, request.Save(tr.db)
+	request.UpdatedAt = db.NewTime(time.Now())
+	return request, request.Save(context.Background(), tr.db)
 }
 
 func (tr *TokenRequester) SaveToken(token *Token, params providers.TokenRequestParams) (db.OauthToken, error) {
@@ -282,8 +299,9 @@ func (tr *TokenRequester) SaveToken(token *Token, params providers.TokenRequestP
 				ClientID:                 params.ClientID,
 				ClientSecret:             params.ClientSecret,
 				OriginalRefreshToken:     originalRefreshToken,
-				CreatedAt:                time.Now(),
+				CreatedAt:                db.NewTime(time.Now()),
 				CodeExchangeResponseBody: sql.NullString{string(b), true},
+				CodeVerifier:             params.CodeVerifier,
 			}
 		} else {
 			return db.OauthToken{}, errors.WithStack(err)
@@ -304,9 +322,10 @@ func (tr *TokenRequester) SaveToken(token *Token, params providers.TokenRequestP
 	// update only changes
 	dbToken.RefreshToken = token.RefreshToken
 	dbToken.AccessToken = token.AccessToken
-	dbToken.ExpiresAt = token.Expiry
-	dbToken.UpdatedAt = time.Now()
-	return *dbToken, dbToken.Save(tr.db)
+	expiry := db.NewTime(token.Expiry)
+	dbToken.ExpiresAt = &expiry
+	dbToken.UpdatedAt = db.NewTime(time.Now())
+	return *dbToken, dbToken.Save(context.Background(), tr.db)
 }
 
 func (tr *TokenRequester) handleResults(request TokenRequest, token *Token, err error) {

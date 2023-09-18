@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/lytics/logrus"
+	"github.com/omniboost/oauth-proxy/db"
 	"github.com/omniboost/oauth-proxy/providers"
 	"github.com/pkg/errors"
 	"github.com/xo/dburl"
@@ -133,6 +134,7 @@ func (s *Server) NewDB() (*sql.DB, error) {
 	}
 	sql.Register("moderncsqlite", &sqlite.Driver{})
 	url := fmt.Sprintf("moderncsqlite://%s?loc=auto&_time_format=sqlite&_pragma=busy_timeout%3d80000&_pragma=journal_mode(WAL)", path)
+	db.SetLogger(fmt.Printf)
 	db, err := dburl.Open(url)
 	db.SetMaxOpenConns(1)
 	return db, errors.WithStack(err)
@@ -295,7 +297,7 @@ func (s *Server) NewClient() *http.Client {
 }
 
 func (s *Server) ErrorResponse(w http.ResponseWriter, err error) {
-	logrus.Error(err)
+	logrus.Errorf("%+v", err)
 
 	w.WriteHeader(http.StatusBadRequest)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")

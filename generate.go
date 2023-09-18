@@ -1,8 +1,14 @@
+//go:build ignore
 // +build ignore
 
 package main
 
-//go:generate xo sqlite://db/production.sqlite3?loc=auto -o db
+import (
+	"log"
+	"net/http"
+)
+
+//go:generate xo schema sqlite://db/production.sqlite3?loc=auto -o db
 //go:generate go run generate.go
 
 func main() {
