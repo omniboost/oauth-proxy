@@ -20,6 +20,12 @@ type Provider interface {
 	// NewToken(TokenRequestParams) (oauth2.Token, error)
 }
 
+type RevokeProvider interface {
+	Name() string
+	RevokeRoute() string
+	RevokeURL() string
+}
+
 func Load() Providers {
 	return Providers{
 		NewExactOnline().
@@ -113,13 +119,15 @@ func Load() Providers {
 		NewDatev().
 			WithName("datev").
 			WithRemoteKeysetURL("https://api.datev.de/certs").
-			WithIssuerURL("https://login.datev.de/openid"),
+			WithIssuerURL("https://login.datev.de/openid").
+			WithRevokeURL("https://api.datev.de/revoke"),
 		NewDatev().
 			WithName("datev-sandbox").
 			WithAuthURL("https://login.datev.de/openidsandbox/authorize").
 			WithTokenURL("https://sandbox-api.datev.de/token").
 			WithRemoteKeysetURL("https://sandbox-api.datev.de/certs").
-			WithIssuerURL("https://login.datev.de/openidsandbox"),
+			WithIssuerURL("https://login.datev.de/openidsandbox").
+			WithRevokeURL("https://sandbox-api.datev.de/revoke"),
 		NewBookingExperts().
 			WithName("bookingexperts"),
 	}

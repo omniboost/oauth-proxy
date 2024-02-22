@@ -55,6 +55,7 @@ type Server struct {
 	db              *sql.DB
 	providers       providers.Providers
 	tokenRequesters map[string]*TokenRequester
+	tokenRevokers   map[string]*TokenRevoker
 }
 
 func (s *Server) NewHTTP() *http.Server {
@@ -76,14 +77,21 @@ func (s *Server) NewProviders() providers.Providers {
 	return providers.Load()
 }
 
-func (s *Server) SetProviders(providers providers.Providers) {
-	s.providers = providers
+func (s *Server) SetProviders(pp providers.Providers) {
+	s.providers = pp
 
 	s.tokenRequesters = map[string]*TokenRequester{}
-	for _, provider := range providers {
+	s.tokenRevokers = map[string]*TokenRevoker{}
+	for _, provider := range pp {
 		tr := NewTokenRequester(s.db, provider)
 		s.tokenRequesters[provider.Name()] = tr
 		tr.Start()
+
+		if i, ok := provider.(providers.RevokeProvider); ok {
+			tr := NewTokenRevoker(s.db, i)
+			s.tokenRevokers[i.Name()] = tr
+			tr.Start()
+		}
 	}
 }
 
@@ -91,7 +99,12 @@ func (s *Server) NewRouter() *http.ServeMux {
 	r := http.NewServeMux()
 
 	for _, prov := range s.providers {
-		r.HandleFunc(prov.Route(), s.NewProviderHandler(prov))
+		r.HandleFunc(prov.Route(), s.NewProviderTokenHandler(prov))
+
+		if i, ok := prov.(providers.RevokeProvider); ok {
+			logrus.Debugf("Adding revoke route for provider %s", prov.Name())
+			r.HandleFunc(i.RevokeRoute(), s.NewProviderRevokeHandler(i))
+		}
 	}
 	return r
 }
@@ -204,7 +217,7 @@ func (s *Server) Stop() error {
 	return nil
 }
 
-func (s *Server) NewProviderHandler(provider providers.Provider) http.HandlerFunc {
+func (s *Server) NewProviderTokenHandler(provider providers.Provider) http.HandlerFunc {
 	// - parse json inline
 	// - strip out refresh and access token, grant_type, client_id and
 	// client_secret
@@ -292,6 +305,64 @@ func (s *Server) NewProviderHandler(provider providers.Provider) http.HandlerFun
 	}
 }
 
+func (s *Server) NewProviderRevokeHandler(provider providers.RevokeProvider) http.HandlerFunc {
+	// - https://datatracker.ietf.org/doc/html/rfc7009
+	// - get token & type from request
+	// - revoke in database
+	// - send request to provider endpoint
+	// - return response
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+
+		b, err := httputil.DumpRequest(r, true)
+		logrus.Debug("Server revoke incoming request:")
+		logrus.Debug(string(b))
+		if err != nil {
+			s.ErrorResponse(w, err)
+			return
+		}
+
+		rrp, err := s.GetTokenRevokeParamsFromRequest(r)
+		if err != nil {
+			s.ErrorResponse(w, err)
+			return
+		}
+
+		logrus.Debug("Revoking token")
+		resp, err := s.RevokeToken(provider, rrp)
+		if err != nil {
+			s.ErrorResponse(w, err)
+			return
+		}
+		defer resp.Body.Close()
+
+		for k, vv := range resp.Header {
+			for _, v := range vv {
+				w.Header().Add(k, v)
+			}
+		}
+
+		// resp.Body -> buffer -> log
+		//           -> http.ResponseWriter -> response to client
+
+		var buf bytes.Buffer
+		rsp := io.MultiWriter(w, &buf)
+
+		// pipe response body to client
+		_, err = io.Copy(rsp, resp.Body)
+		if err != nil {
+			s.ErrorResponse(w, err)
+			return
+		}
+
+		logrus.Debug("Server outgoing response (without headers for now):")
+		for _, s := range strings.Split(buf.String(), "\r\n") {
+			logrus.Debug(s)
+		}
+	}
+}
+
 func (s *Server) NewClient() *http.Client {
 	return http.DefaultClient
 }
@@ -318,7 +389,7 @@ func (s *Server) ErrorResponse(w http.ResponseWriter, err error) {
 		logrus.Error(err)
 	}
 
-	logrus.Debug("Server outgoing response:")
+	logrus.Debug("Server outgoing response (without headers for now):")
 	for _, s := range strings.Split(buf.String(), "\r\n") {
 		logrus.Debug(s)
 	}
@@ -333,6 +404,17 @@ func (s *Server) RequestToken(provider providers.Provider, params providers.Toke
 	}
 
 	return tr.Request(params)
+}
+
+func (s *Server) RevokeToken(provider providers.RevokeProvider, params TokenRevokeParams) (*http.Response, error) {
+	tr, ok := s.tokenRevokers[provider.Name()]
+	if !ok {
+		// this should not happen because all tokenrequesters are loaded when
+		// Server.SetProviders() is called
+		return nil, errors.Errorf("Token requester for provider %s doesn't exist", provider.Name())
+	}
+
+	return tr.Revoke(params)
 }
 
 func (s *Server) GetTokenRequestParamsFromRequest(r *http.Request) (providers.TokenRequestParams, error) {
@@ -356,6 +438,19 @@ func (s *Server) GetTokenRequestParamsFromRequest(r *http.Request) (providers.To
 	default:
 		return s.GetTokenRequestParamsFromJSONRequest(r)
 	}
+}
+
+func (s *Server) GetTokenRevokeParamsFromRequest(r *http.Request) (TokenRevokeParams, error) {
+	err := r.ParseForm()
+	if err != nil {
+		return TokenRevokeParams{}, errors.WithStack(err)
+	}
+
+	return TokenRevokeParams{
+		TokenTypeHint: r.Form.Get("token_type_hint"),
+		Token:         r.Form.Get("token"),
+		Request:       r,
+	}, nil
 }
 
 func (s *Server) GetTokenRequestParamsFromFormRequest(r *http.Request) (providers.TokenRequestParams, error) {

@@ -107,7 +107,7 @@ func initLogger() {
 	}
 
 	if verbosity > 2 {
-		// log http requests
+		// log http outgoing requests + responses
 		http.DefaultTransport = loghttp.DefaultTransport
 		loghttp.DefaultTransport.LogRequest = func(req *http.Request) {
 			b, _ := httputil.DumpRequestOut(req, true)

@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS "oauth_tokens" (
 	"updated_at"	DATETIME NOT NULL,
 	"code_exchange_response_body"	TEXT,
 	"code_verifier"	TEXT NOT NULL DEFAULT '',
+	"refresh_token_expires_at"	DATETIME,
 	PRIMARY KEY("id" AUTOINCREMENT)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS "ot_app_client_id_client_secret_refresh_token" ON "oauth_tokens" (
@@ -44,5 +45,17 @@ CREATE UNIQUE INDEX IF NOT EXISTS "ot_app_client_id_client_secret_original_refre
 	"client_id",
 	"client_secret",
 	"original_refresh_token"
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "ot_app_original_refresh_token" ON "oauth_tokens" (
+	"app",
+	"original_refresh_token"
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "ot_app_refresh_token" ON "oauth_tokens" (
+	"app",
+	"refresh_token"
+);
+CREATE INDEX IF NOT EXISTS "ot_app_access_token" ON "oauth_tokens" (
+	"app",
+	"access_token"
 );
 COMMIT;

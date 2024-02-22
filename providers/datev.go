@@ -13,6 +13,7 @@ type Datev struct {
 	tokenURL        string
 	remoteKeysetURL string
 	issuerURL       string
+	revokeURL       string
 }
 
 func NewDatev() *Datev {
@@ -44,12 +45,25 @@ func (v Datev) WithIssuerURL(u string) Datev {
 	return v
 }
 
+func (v Datev) WithRevokeURL(u string) Datev {
+	v.revokeURL = u
+	return v
+}
+
+func (v Datev) RevokeURL() string {
+	return v.revokeURL
+}
+
 func (v Datev) Name() string {
 	return v.name
 }
 
 func (v Datev) Route() string {
 	return "/" + v.name + "/oauth2/token"
+}
+
+func (v Datev) RevokeRoute() string {
+	return "/" + v.name + "/oauth2/revoke"
 }
 
 func (v Datev) oauthConfig() *oauth2.Config {

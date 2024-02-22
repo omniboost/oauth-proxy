@@ -4,6 +4,7 @@ package db
 
 import (
 	"context"
+	"time"
 	"database/sql"
 )
 
@@ -22,6 +23,7 @@ type OauthToken struct {
 	UpdatedAt                Time           `json:"updated_at"`                  // updated_at
 	CodeExchangeResponseBody sql.NullString `json:"code_exchange_response_body"` // code_exchange_response_body
 	CodeVerifier             string         `json:"code_verifier"`               // code_verifier
+	RefreshTokenExpiresAt    *Time          `json:"refresh_token_expires_at"`    // refresh_token_expires_at
 	// xo fields
 	_exists, _deleted bool
 }
@@ -78,11 +80,11 @@ func (ot *OauthToken) Update(ctx context.Context, db DB) error {
 	}
 	// update with primary key
 	const sqlstr = `UPDATE oauth_tokens SET ` +
-		`app = $1, type = $2, client_id = $3, client_secret = $4, original_refresh_token = $5, refresh_token = $6, access_token = $7, expires_at = $8, created_at = $9, updated_at = $10, code_exchange_response_body = $11, code_verifier = $12 ` +
-		`WHERE id = $13`
+		`app = $1, type = $2, client_id = $3, client_secret = $4, original_refresh_token = $5, refresh_token = $6, access_token = $7, expires_at = $8, created_at = $9, updated_at = $10, code_exchange_response_body = $11, code_verifier = $12, refresh_token_expires_at = $13 ` +
+		`WHERE id = $14`
 	// run
-	logf(sqlstr, ot.App, ot.Type, ot.ClientID, ot.ClientSecret, ot.OriginalRefreshToken, ot.RefreshToken, ot.AccessToken, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt, ot.CodeExchangeResponseBody, ot.CodeVerifier, ot.ID)
-	if _, err := db.ExecContext(ctx, sqlstr, ot.App, ot.Type, ot.ClientID, ot.ClientSecret, ot.OriginalRefreshToken, ot.RefreshToken, ot.AccessToken, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt, ot.CodeExchangeResponseBody, ot.CodeVerifier, ot.ID); err != nil {
+	logf(sqlstr, ot.App, ot.Type, ot.ClientID, ot.ClientSecret, ot.OriginalRefreshToken, ot.RefreshToken, ot.AccessToken, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt, ot.CodeExchangeResponseBody, ot.CodeVerifier, ot.RefreshTokenExpiresAt, ot.ID)
+	if _, err := db.ExecContext(ctx, sqlstr, ot.App, ot.Type, ot.ClientID, ot.ClientSecret, ot.OriginalRefreshToken, ot.RefreshToken, ot.AccessToken, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt, ot.CodeExchangeResponseBody, ot.CodeVerifier, ot.RefreshTokenExpiresAt, ot.ID); err != nil {
 		return logerror(err)
 	}
 	return nil
@@ -104,16 +106,16 @@ func (ot *OauthToken) Upsert(ctx context.Context, db DB) error {
 	}
 	// upsert
 	const sqlstr = `INSERT INTO oauth_tokens (` +
-		`id, app, type, client_id, client_secret, original_refresh_token, refresh_token, access_token, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier` +
+		`id, app, type, client_id, client_secret, original_refresh_token, refresh_token, access_token, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier, refresh_token_expires_at` +
 		`) VALUES (` +
 		`$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13` +
 		`)` +
 		` ON CONFLICT (id) DO ` +
 		`UPDATE SET ` +
-		`app = EXCLUDED.app, type = EXCLUDED.type, client_id = EXCLUDED.client_id, client_secret = EXCLUDED.client_secret, original_refresh_token = EXCLUDED.original_refresh_token, refresh_token = EXCLUDED.refresh_token, access_token = EXCLUDED.access_token, expires_at = EXCLUDED.expires_at, created_at = EXCLUDED.created_at, updated_at = EXCLUDED.updated_at, code_exchange_response_body = EXCLUDED.code_exchange_response_body, code_verifier = EXCLUDED.code_verifier `
+		`app = EXCLUDED.app, type = EXCLUDED.type, client_id = EXCLUDED.client_id, client_secret = EXCLUDED.client_secret, original_refresh_token = EXCLUDED.original_refresh_token, refresh_token = EXCLUDED.refresh_token, access_token = EXCLUDED.access_token, expires_at = EXCLUDED.expires_at, created_at = EXCLUDED.created_at, updated_at = EXCLUDED.updated_at, code_exchange_response_body = EXCLUDED.code_exchange_response_body, code_verifier = EXCLUDED.code_verifier, refresh_token_expires_at = EXCLUDED.refresh_token_expires_at`
 	// run
-	logf(sqlstr, ot.ID, ot.App, ot.Type, ot.ClientID, ot.ClientSecret, ot.OriginalRefreshToken, ot.RefreshToken, ot.AccessToken, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt, ot.CodeExchangeResponseBody, ot.CodeVerifier)
-	if _, err := db.ExecContext(ctx, sqlstr, ot.ID, ot.App, ot.Type, ot.ClientID, ot.ClientSecret, ot.OriginalRefreshToken, ot.RefreshToken, ot.AccessToken, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt, ot.CodeExchangeResponseBody, ot.CodeVerifier); err != nil {
+	logf(sqlstr, ot.ID, ot.App, ot.Type, ot.ClientID, ot.ClientSecret, ot.OriginalRefreshToken, ot.RefreshToken, ot.AccessToken, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt, ot.CodeExchangeResponseBody, ot.CodeVerifier, ot.RefreshTokenExpiresAt)
+	if _, err := db.ExecContext(ctx, sqlstr, ot.ID, ot.App, ot.Type, ot.ClientID, ot.ClientSecret, ot.OriginalRefreshToken, ot.RefreshToken, ot.AccessToken, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt, ot.CodeExchangeResponseBody, ot.CodeVerifier, ot.RefreshTokenExpiresAt); err != nil {
 		return logerror(err)
 	}
 	// set exists
@@ -148,7 +150,7 @@ func (ot *OauthToken) Delete(ctx context.Context, db DB) error {
 func OauthTokenByID(ctx context.Context, db DB, id int) (*OauthToken, error) {
 	// query
 	const sqlstr = `SELECT ` +
-		`id, app, type, client_id, client_secret, original_refresh_token, refresh_token, access_token, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier ` +
+		`id, app, type, client_id, client_secret, original_refresh_token, refresh_token, access_token, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier, refresh_token_expires_at ` +
 		`FROM oauth_tokens ` +
 		`WHERE id = $1`
 	// run
@@ -156,10 +158,45 @@ func OauthTokenByID(ctx context.Context, db DB, id int) (*OauthToken, error) {
 	ot := OauthToken{
 		_exists: true,
 	}
-	if err := db.QueryRowContext(ctx, sqlstr, id).Scan(&ot.ID, &ot.App, &ot.Type, &ot.ClientID, &ot.ClientSecret, &ot.OriginalRefreshToken, &ot.RefreshToken, &ot.AccessToken, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt, &ot.CodeExchangeResponseBody, &ot.CodeVerifier); err != nil {
+	if err := db.QueryRowContext(ctx, sqlstr, id).Scan(&ot.ID, &ot.App, &ot.Type, &ot.ClientID, &ot.ClientSecret, &ot.OriginalRefreshToken, &ot.RefreshToken, &ot.AccessToken, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt, &ot.CodeExchangeResponseBody, &ot.CodeVerifier, &ot.RefreshTokenExpiresAt); err != nil {
 		return nil, logerror(err)
 	}
 	return &ot, nil
+}
+
+// OauthTokensByAppAccessToken retrieves a row from 'oauth_tokens' as a [OauthToken].
+//
+// Generated from index 'ot_app_access_token'.
+func OauthTokensByAppAccessToken(ctx context.Context, db DB, app, accessToken string) ([]*OauthToken, error) {
+	// query
+	const sqlstr = `SELECT ` +
+		`id, app, type, client_id, client_secret, original_refresh_token, refresh_token, access_token, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier, refresh_token_expires_at ` +
+		`FROM oauth_tokens ` +
+		`WHERE app = $1 AND access_token = $2 AND (refresh_token_expires_at IS NULL OR refresh_token_expires_at > $3)`
+	// run
+	refreshTokenExpiresAt := NewTime(time.Now())
+	logf(sqlstr, app, accessToken, refreshTokenExpiresAt)
+	rows, err := db.QueryContext(ctx, sqlstr, app, accessToken, refreshTokenExpiresAt)
+	if err != nil {
+		return nil, logerror(err)
+	}
+	defer rows.Close()
+	// process
+	var res []*OauthToken
+	for rows.Next() {
+		ot := OauthToken{
+			_exists: true,
+		}
+		// scan
+		if err := rows.Scan(&ot.ID, &ot.App, &ot.Type, &ot.ClientID, &ot.ClientSecret, &ot.OriginalRefreshToken, &ot.RefreshToken, &ot.AccessToken, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt, &ot.CodeExchangeResponseBody, &ot.CodeVerifier, &ot.RefreshTokenExpiresAt); err != nil {
+			return nil, logerror(err)
+		}
+		res = append(res, &ot)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, logerror(err)
+	}
+	return res, nil
 }
 
 // OauthTokenByAppClientIDClientSecretOriginalRefreshToken retrieves a row from 'oauth_tokens' as a [OauthToken].
@@ -168,15 +205,16 @@ func OauthTokenByID(ctx context.Context, db DB, id int) (*OauthToken, error) {
 func OauthTokenByAppClientIDClientSecretOriginalRefreshToken(ctx context.Context, db DB, app, clientID, clientSecret, originalRefreshToken string) (*OauthToken, error) {
 	// query
 	const sqlstr = `SELECT ` +
-		`id, app, type, client_id, client_secret, original_refresh_token, refresh_token, access_token, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier ` +
+		`id, app, type, client_id, client_secret, original_refresh_token, refresh_token, access_token, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier, refresh_token_expires_at ` +
 		`FROM oauth_tokens ` +
-		`WHERE app = $1 AND client_id = $2 AND client_secret = $3 AND original_refresh_token = $4`
+		`WHERE app = $1 AND client_id = $2 AND client_secret = $3 AND original_refresh_token = $4 AND (refresh_token_expires_at IS NULL OR refresh_token_expires_at > $4)`
 	// run
-	logf(sqlstr, app, clientID, clientSecret, originalRefreshToken)
+	refreshTokenExpiresAt := NewTime(time.Now())
+	logf(sqlstr, app, clientID, clientSecret, originalRefreshToken, originalRefreshToken, refreshTokenExpiresAt)
 	ot := OauthToken{
 		_exists: true,
 	}
-	if err := db.QueryRowContext(ctx, sqlstr, app, clientID, clientSecret, originalRefreshToken).Scan(&ot.ID, &ot.App, &ot.Type, &ot.ClientID, &ot.ClientSecret, &ot.OriginalRefreshToken, &ot.RefreshToken, &ot.AccessToken, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt, &ot.CodeExchangeResponseBody, &ot.CodeVerifier); err != nil {
+	if err := db.QueryRowContext(ctx, sqlstr, app, clientID, clientSecret, originalRefreshToken, refreshTokenExpiresAt).Scan(&ot.ID, &ot.App, &ot.Type, &ot.ClientID, &ot.ClientSecret, &ot.OriginalRefreshToken, &ot.RefreshToken, &ot.AccessToken, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt, &ot.CodeExchangeResponseBody, &ot.CodeVerifier, &ot.RefreshTokenExpiresAt); err != nil {
 		return nil, logerror(err)
 	}
 	return &ot, nil
@@ -188,15 +226,72 @@ func OauthTokenByAppClientIDClientSecretOriginalRefreshToken(ctx context.Context
 func OauthTokenByAppClientIDClientSecretRefreshToken(ctx context.Context, db DB, app, clientID, clientSecret, refreshToken string) (*OauthToken, error) {
 	// query
 	const sqlstr = `SELECT ` +
-		`id, app, type, client_id, client_secret, original_refresh_token, refresh_token, access_token, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier ` +
+		`id, app, type, client_id, client_secret, original_refresh_token, refresh_token, access_token, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier, refresh_token_expires_at ` +
 		`FROM oauth_tokens ` +
-		`WHERE app = $1 AND client_id = $2 AND client_secret = $3 AND refresh_token = $4`
+		`WHERE app = $1 AND client_id = $2 AND client_secret = $3 AND refresh_token = $4 AND (refresh_token_expires_at IS NULL OR refresh_token_expires_at > $5)`
 	// run
-	logf(sqlstr, app, clientID, clientSecret, refreshToken)
+	refreshTokenExpiresAt := NewTime(time.Now())
+	logf(sqlstr, app, clientID, clientSecret, refreshToken, refreshTokenExpiresAt)
 	ot := OauthToken{
 		_exists: true,
 	}
-	if err := db.QueryRowContext(ctx, sqlstr, app, clientID, clientSecret, refreshToken).Scan(&ot.ID, &ot.App, &ot.Type, &ot.ClientID, &ot.ClientSecret, &ot.OriginalRefreshToken, &ot.RefreshToken, &ot.AccessToken, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt, &ot.CodeExchangeResponseBody, &ot.CodeVerifier); err != nil {
+	if err := db.QueryRowContext(ctx, sqlstr, app, clientID, clientSecret, refreshToken, refreshTokenExpiresAt).Scan(&ot.ID, &ot.App, &ot.Type, &ot.ClientID, &ot.ClientSecret, &ot.OriginalRefreshToken, &ot.RefreshToken, &ot.AccessToken, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt, &ot.CodeExchangeResponseBody, &ot.CodeVerifier, &ot.RefreshTokenExpiresAt); err != nil {
+		return nil, logerror(err)
+	}
+	return &ot, nil
+}
+
+// OauthTokensByAppOriginalRefreshToken retrieves a row from 'oauth_tokens' as a [OauthToken].
+//
+// Generated from index 'ot_app_original_refresh_token'.
+func OauthTokensByAppOriginalRefreshToken(ctx context.Context, db DB, app, originalRefreshToken string) ([]*OauthToken, error) {
+	// query
+	const sqlstr = `SELECT ` +
+		`id, app, type, client_id, client_secret, original_refresh_token, refresh_token, access_token, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier, refresh_token_expires_at ` +
+		`FROM oauth_tokens ` +
+		`WHERE app = $1 AND original_refresh_token = $2 AND (refresh_token_expires_at IS NULL OR refresh_token_expires_at > $3)`
+	// run
+	refreshTokenExpiresAt := NewTime(time.Now())
+	logf(sqlstr, app, originalRefreshToken, refreshTokenExpiresAt)
+	rows, err := db.QueryContext(ctx, sqlstr, app, originalRefreshToken, refreshTokenExpiresAt)
+	if err != nil {
+		return nil, logerror(err)
+	}
+	defer rows.Close()
+	// process
+	var res []*OauthToken
+	for rows.Next() {
+		ot := OauthToken{
+			_exists: true,
+		}
+		// scan
+		if err := rows.Scan(&ot.ID, &ot.App, &ot.Type, &ot.ClientID, &ot.ClientSecret, &ot.OriginalRefreshToken, &ot.RefreshToken, &ot.AccessToken, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt, &ot.CodeExchangeResponseBody, &ot.CodeVerifier, &ot.RefreshTokenExpiresAt); err != nil {
+			return nil, logerror(err)
+		}
+		res = append(res, &ot)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, logerror(err)
+	}
+	return res, nil
+}
+
+// OauthTokenByAppRefreshToken retrieves a row from 'oauth_tokens' as a [OauthToken].
+//
+// Generated from index 'ot_app_refresh_token'.
+func OauthTokenByAppRefreshToken(ctx context.Context, db DB, app, refreshToken string) (*OauthToken, error) {
+	// query
+	const sqlstr = `SELECT ` +
+		`id, app, type, client_id, client_secret, original_refresh_token, refresh_token, access_token, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier, refresh_token_expires_at ` +
+		`FROM oauth_tokens ` +
+		`WHERE app = $1 AND refresh_token = $2 AND (refresh_token_expires_at IS NULL OR refresh_token_expires_at > $3)`
+	// run
+	refreshTokenExpiresAt := NewTime(time.Now())
+	logf(sqlstr, app, refreshToken, refreshTokenExpiresAt)
+	ot := OauthToken{
+		_exists: true,
+	}
+	if err := db.QueryRowContext(ctx, sqlstr, app, refreshToken, refreshTokenExpiresAt).Scan(&ot.ID, &ot.App, &ot.Type, &ot.ClientID, &ot.ClientSecret, &ot.OriginalRefreshToken, &ot.RefreshToken, &ot.AccessToken, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt, &ot.CodeExchangeResponseBody, &ot.CodeVerifier, &ot.RefreshTokenExpiresAt); err != nil {
 		return nil, logerror(err)
 	}
 	return &ot, nil
