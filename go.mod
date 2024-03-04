@@ -1,6 +1,6 @@
 module github.com/omniboost/oauth-proxy
 
-go 1.21
+go 1.22
 
 require (
 	github.com/coreos/go-oidc/v3 v3.6.0
