@@ -125,7 +125,10 @@ func (s *Server) Addr() string {
 }
 
 func (s *Server) NewDB() (*sql.DB, error) {
-	path := "db/production.sqlite3"
+	path := os.Getenv("SQLITE_DB")
+	if path == "" {
+		path = "db/production.sqlite3"
+	}
 	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
 		src, err := Assets.Open("empty.sqlite3")
