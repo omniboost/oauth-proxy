@@ -23,7 +23,7 @@ require (
 	github.com/BurntSushi/toml v1.3.2 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/fsnotify/fsnotify v1.4.7 // indirect
-	github.com/go-jose/go-jose/v3 v3.0.1-0.20230907165853-260aa2669b7e // indirect
+	github.com/go-jose/go-jose/v3 v3.0.1 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
