@@ -6,7 +6,9 @@ import (
 	"net/http/httputil"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/getsentry/sentry-go"
 	"github.com/lytics/logrus"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/motemen/go-loghttp"
@@ -39,7 +41,11 @@ var rootCmd = &cobra.Command{
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
+	// Flush buffered events before the program terminates.
+	defer sentry.Flush(2 * time.Second)
+
 	if err := rootCmd.Execute(); err != nil {
+		sentry.CaptureException(err)
 		fmt.Println(err)
 		os.Exit(1)
 	}
@@ -55,7 +61,7 @@ func init() {
 
 	rootCmd.PersistentFlags().CountP("verbose", "v", "Verbosity (repeat for more verbose)")
 
-	cobra.OnInitialize(initLogger)
+	cobra.OnInitialize(initLogger, initSentry)
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
@@ -129,6 +135,17 @@ func initLogger() {
 	db.XOLog = func(s string, p ...interface{}) {
 		logrus.Debug("> SQL: %s -- params: %v\n", s, p)
 	}
+}
+
+func initSentry() {
+	dsn := os.Getenv("SENTRY_DSN")
+	if dsn == "" {
+		return
+	}
+
+	sentry.Init(sentry.ClientOptions{
+		Dsn: dsn,
+	})
 }
 
 func logErrorAndExit(err error) {

@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/getsentry/sentry-go"
 	"github.com/lytics/logrus"
 	"github.com/omniboost/oauth-proxy/db"
 	"github.com/omniboost/oauth-proxy/providers"
@@ -166,6 +167,7 @@ func (s *Server) Start() error {
 	go func() {
 		if err := s.http.ListenAndServe(); err != nil {
 			log.Println(err)
+			sentry.CaptureException(err)
 			errChan <- err
 		}
 	}()
@@ -254,15 +256,27 @@ func (s *Server) NewProviderTokenHandler(provider providers.Provider) http.Handl
 			logrus.Debug(s)
 		}
 		if err != nil {
+			sentry.CaptureException(err)
 			s.ErrorResponse(w, err)
 			return
 		}
 
 		trp, err := s.GetTokenRequestParamsFromRequest(r)
 		if err != nil {
+			sentry.CaptureException(err)
 			s.ErrorResponse(w, err)
 			return
 		}
+
+		sentry.ConfigureScope(func(scope *sentry.Scope) {
+			scope.SetTag("Provider", provider.Name())
+			scope.SetTag("ClientID", trp.ClientID)
+			scope.SetExtra("ClientSecret", trp.ClientSecret)
+			scope.SetTag("RefreshToken", trp.RefreshToken)
+			scope.SetExtra("Code", trp.Code)
+			scope.SetExtra("RedirectURL", trp.RedirectURL)
+			scope.SetExtra("CodeVerifier", trp.CodeVerifier)
+		})
 
 		// use reqBody.RefreshToken, reqBody.ClientID & reqBody.ClientSecret to
 		// retrieve the latest valid refreshtoken and accesstoken from storage
@@ -275,6 +289,7 @@ func (s *Server) NewProviderTokenHandler(provider providers.Provider) http.Handl
 
 		token, err := s.RequestToken(provider, trp)
 		if err != nil {
+			sentry.CaptureException(err)
 			s.ErrorResponse(w, err)
 			return
 		}
@@ -371,8 +386,6 @@ func (s *Server) NewClient() *http.Client {
 }
 
 func (s *Server) ErrorResponse(w http.ResponseWriter, err error) {
-	logrus.Errorf("%+v", err)
-
 	w.WriteHeader(http.StatusBadRequest)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 

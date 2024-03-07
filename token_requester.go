@@ -88,8 +88,8 @@ func (tr *TokenRequester) CodeExchange(req TokenRequest) (*Token, error) {
 	t, err := tr.provider.Exchange(ctx, params, opts...)
 	token := &Token{Token: t, Raw: map[string]json.RawMessage{}}
 	if err != nil {
-		logrus.Errorf("something went wrong exchanging code (%s)", params.Code)
-		return token, errors.WithStack(err)
+		e := errors.Wrapf(err, "something went wrong exchanging code (%s)", params.Code)
+		return token, e
 	}
 
 	// check id token if present
@@ -124,8 +124,7 @@ func (tr *TokenRequester) CodeExchange(req TokenRequest) (*Token, error) {
 
 	_, err = tr.SaveToken(token, params)
 	if err != nil {
-		logrus.Errorf("something went wrong saving a new token to the database (%s)", token.RefreshToken)
-		return token, errors.WithStack(err)
+		return token, err
 	}
 
 	return token, errors.WithStack(err)
@@ -148,8 +147,8 @@ func (tr *TokenRequester) TokenRefresh(req TokenRequest) (*Token, error) {
 		logrus.Debugf("sending new token to requester (%s)", params.RefreshToken)
 		return token, errors.WithStack(err)
 	} else if err != nil {
-		logrus.Errorf("error retrieving token from database (%s): %s", params.RefreshToken, err)
-		return token, errors.WithStack(err)
+		e := errors.Wrapf(err, "error retrieving token from database (%s): %s", params.RefreshToken, err)
+		return token, e
 	} else {
 		logrus.Debugf("found existing token in database (%s)", params.RefreshToken)
 	}
@@ -377,8 +376,8 @@ func (tr *TokenRequester) fetchAndSaveNewToken(params providers.TokenRequestPara
 	t, err := tr.FetchNewToken(params)
 	token := &Token{Token: t, Raw: map[string]json.RawMessage{}}
 	if err != nil {
-		logrus.Errorf("something went wrong fetching new token (%s): %s", params.RefreshToken, err)
-		return token, errors.WithStack(err)
+		e := errors.Wrapf(err, "something went wrong fetching new token (%s): %s", params.RefreshToken, err)
+		return token, e
 	}
 
 	trDB, err = tr.AddTokenToTokenRequest(trDB, *token)
@@ -389,8 +388,8 @@ func (tr *TokenRequester) fetchAndSaveNewToken(params providers.TokenRequestPara
 	logrus.Debugf("saving new token to database (%s)", params.RefreshToken)
 	_, err = tr.SaveToken(token, params)
 	if err != nil {
-		logrus.Errorf("something went wrong saving a new token to the database (%s): %s", params.RefreshToken, err)
-		return token, errors.WithStack(err)
+		e := errors.Wrapf(err, "something went wrong saving a new token to the database (%s): %s", params.RefreshToken, err)
+		return token, e
 	}
 
 	return token, nil

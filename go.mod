@@ -4,8 +4,9 @@ go 1.22
 
 require (
 	github.com/coreos/go-oidc/v3 v3.6.0
+	github.com/getsentry/sentry-go v0.27.0
 	github.com/labstack/echo v3.3.10+incompatible
-	github.com/labstack/gommon v0.2.7
+	github.com/labstack/gommon v0.4.0
 	github.com/lytics/logrus v0.0.0-20170528191427-4389a17ed024
 	github.com/mitchellh/go-homedir v1.0.0
 	github.com/motemen/go-loghttp v0.0.0-20170804080138-974ac5ceac27
@@ -30,7 +31,7 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/magiconair/properties v1.8.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-isatty v0.0.16 // indirect
+	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/mitchellh/mapstructure v1.0.0 // indirect
 	github.com/motemen/go-nuts v0.0.0-20190725124253-1d2432db96b0 // indirect
 	github.com/pelletier/go-toml v1.2.0 // indirect
@@ -39,7 +40,7 @@ require (
 	github.com/spf13/cast v1.2.0 // indirect
 	github.com/spf13/jwalterweatherman v1.0.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/fasttemplate v0.0.0-20170224212429-dcecefd839c4 // indirect
+	github.com/valyala/fasttemplate v1.2.2 // indirect
 	golang.org/x/crypto v0.14.0 // indirect
 	golang.org/x/mod v0.8.0 // indirect
 	golang.org/x/net v0.17.0 // indirect
