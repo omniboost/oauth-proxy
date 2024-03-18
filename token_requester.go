@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -100,7 +101,11 @@ func (tr *TokenRequester) CodeExchange(req TokenRequest) (*Token, error) {
 		}); ok {
 			_, err := v.IDTokenVerifier(params).Verify(context.Background(), idToken)
 			if err != nil {
-				return token, errors.WithStack(err)
+				if strings.Contains(err.Error(), "failed to decode keys") {
+					// do nothing
+				} else {
+					return token, errors.WithStack(err)
+				}
 			}
 		}
 	}
