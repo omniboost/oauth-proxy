@@ -226,7 +226,11 @@ func (tr *TokenRequester) FetchNewToken(params providers.TokenRequestParams) (*o
 		}); ok {
 			_, err := v.IDTokenVerifier(params).Verify(context.Background(), idToken)
 			if err != nil {
-				return token, errors.WithStack(err)
+				if strings.Contains(err.Error(), "failed to decode keys") {
+					// do nothing
+				} else {
+					return token, errors.WithStack(err)
+				}
 			}
 		}
 	}
