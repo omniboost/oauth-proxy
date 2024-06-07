@@ -82,6 +82,12 @@ func Load() Providers {
 				Scheme: "https",
 				Host:   "lightspeedapis.com",
 			}),
+		NewLightspeedKSeries().
+			WithName("lightspeed-k-series").
+			WithBaseURL(url.URL{
+				Scheme: "https",
+				Host:   "nightswatch.ikentoo.com",
+			}),
 		NewProcountor().
 			WithName("procountor"),
 		NewLightspeedRetail().
