@@ -118,8 +118,8 @@ func Load() Providers {
 			WithName("visma.net"),
 		NewVismaOnline().
 			WithName("vismaonline").
-			WithAuthURL("https://identity-sandbox.test.vismaonline.com/connect/authorize").
-			WithTokenURL("https://identity-sandbox.test.vismaonline.com/connect/token"),
+			WithAuthURL("https://identity.vismaonline.com/connect/authorize").
+			WithTokenURL("https://identity.vismaonline.com/connect/token"),
 		NewAdsolut().
 			WithName("adsolut"),
 		NewChronogolf().
