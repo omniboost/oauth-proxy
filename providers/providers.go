@@ -138,6 +138,8 @@ func Load() Providers {
 			WithRevokeURL("https://sandbox-api.datev.de/revoke"),
 		NewBookingExperts().
 			WithName("bookingexperts"),
+		NewMicrosoftOnline().
+			WithName("microsoftonline"),
 	}
 }
 
