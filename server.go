@@ -516,8 +516,14 @@ func (s *Server) GetTokenRequestParamsFromFormRequest(r *http.Request) (provider
 		}
 
 		// correct authorization header found: use them for client_id and client_secret
-		params.ClientID = pair[0]
-		params.ClientSecret = pair[1]
+		params.ClientID, err = url.QueryUnescape(pair[0])
+		if err != nil {
+			return trp, errors.New("cannot url decode client_id from authorization header")
+		}
+		params.ClientSecret, err = url.QueryUnescape(pair[1])
+		if err != nil {
+			return trp, errors.New("cannot url decode client_secret from authorization header")
+		}
 	}
 
 	return params, nil
