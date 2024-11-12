@@ -100,7 +100,7 @@ func (s *Server) NewRouter() *http.ServeMux {
 	r := http.NewServeMux()
 
 	for _, prov := range s.providers {
-		r.HandleFunc(prov.Route(), s.NewProviderTokenHandler(prov))
+		r.Handle(prov.Route(), logToGrafana(s.NewProviderTokenHandler(prov)))
 
 		if i, ok := prov.(providers.RevokeProvider); ok {
 			logrus.Debugf("Adding revoke route for provider %s", prov.Name())
@@ -150,7 +150,7 @@ func (s *Server) NewDB() (*sql.DB, error) {
 		}
 	}
 	sql.Register("moderncsqlite", &sqlite.Driver{})
-	url := fmt.Sprintf("moderncsqlite://%s?loc=auto&_time_format=sqlite&_pragma=busy_timeout%3d80000&_pragma=journal_mode(WAL)", path)
+	url := fmt.Sprintf("moderncsqlite://%s?loc=auto&_time_format=sqlite&_pragma=busy_timeout=80000&_pragma=journal_mode(WAL)", path)
 	db.SetLogger(fmt.Printf)
 	db, err := dburl.Open(url)
 	db.SetMaxOpenConns(1)
