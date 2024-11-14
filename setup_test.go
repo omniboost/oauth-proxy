@@ -3,7 +3,6 @@ package oauthproxy_test
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"log"
 	"os"
 	"testing"
@@ -13,7 +12,6 @@ import (
 	"github.com/omniboost/oauth-proxy/providers"
 	"github.com/xo/dburl"
 	"golang.org/x/oauth2"
-	"modernc.org/sqlite"
 )
 
 var (
@@ -21,13 +19,10 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	// create new in-memory test db based on the assets/empty.sql file
 	var err error
 
-	sql.Register("moderncsqlite", &sqlite.Driver{})
-	url := fmt.Sprintf("mysql://root:%%24Pbq11Kz1983%%3F@localhost/%s?parseTime=true&multiStatements=true", "oauth_proxy")
 	// db.SetLogger(fmt.Printf)
-	dbh, err = dburl.Open(url)
+	dbh, err = dburl.Open(os.Getenv("DATABASE_URL"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -86,9 +81,9 @@ type MockTokenSource struct{}
 
 func (ts MockTokenSource) Token() (*oauth2.Token, error) {
 	return &oauth2.Token{
-		AccessToken: "MOCK",
+		AccessToken:  "MOCK",
 		RefreshToken: "MOCK",
-		Expiry: time.Time{},
-		ExpiresIn: 0,
+		Expiry:       time.Time{},
+		ExpiresIn:    0,
 	}, nil
 }

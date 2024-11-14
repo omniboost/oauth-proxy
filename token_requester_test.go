@@ -8,7 +8,7 @@ import (
 	"time"
 
 	oauthproxy "github.com/omniboost/oauth-proxy"
-	"github.com/omniboost/oauth-proxy/db"
+	"github.com/omniboost/oauth-proxy/mysql"
 	"github.com/omniboost/oauth-proxy/providers"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
@@ -166,7 +166,7 @@ func TestTokenRequester(t *testing.T) {
 		return
 	}
 
-	tokens, err := db.OauthTokensByAppAccessToken(context.Background(), dbh, provider.Name(), "TEST")
+	tokens, err := mysql.OauthTokensByAppAccessToken(context.Background(), dbh, provider.Name(), "TEST")
 	if err != nil {
 		t.Error(err)
 		return

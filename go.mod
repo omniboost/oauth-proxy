@@ -4,7 +4,9 @@ go 1.23.2
 
 require (
 	github.com/coreos/go-oidc/v3 v3.11.0
+	github.com/felixge/httpsnoop v1.0.4
 	github.com/getsentry/sentry-go v0.29.1
+	github.com/go-sql-driver/mysql v1.8.1
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/snappy v0.0.4
 	github.com/grafana/loki/v3 v3.2.1
@@ -23,6 +25,7 @@ require (
 )
 
 require (
+	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/HdrHistogram/hdrhistogram-go v1.1.2 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.2.0 // indirect
@@ -42,7 +45,6 @@ require (
 	github.com/edsrzf/mmap-go v1.1.0 // indirect
 	github.com/facette/natsort v0.0.0-20181210072756-2cd4dd1e2dcb // indirect
 	github.com/fatih/color v1.16.0 // indirect
-	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.2 // indirect
 	github.com/go-kit/log v0.2.1 // indirect

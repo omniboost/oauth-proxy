@@ -5,14 +5,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/lytics/logrus"
-	"github.com/omniboost/oauth-proxy/db"
+	"github.com/omniboost/oauth-proxy/mysql"
 	"github.com/omniboost/oauth-proxy/providers"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
@@ -112,11 +112,11 @@ func (tr *TokenRequester) CodeExchange(req TokenRequest) (*Token, error) {
 
 	logrus.Debugf("saving new token to database (%s)", token.RefreshToken)
 
-	// params.RefreshToken is used for looking up the entry in the db. Make sure
+	// params.RefreshToken is used for looking up the entry in the mysql. Make sure
 	// it's not empty after a first time code exchange
 	params.RefreshToken = token.RefreshToken
 
-	b, err := ioutil.ReadAll(rt.LastResponseBody())
+	b, err := io.ReadAll(rt.LastResponseBody())
 	if err != nil {
 		return token, errors.WithStack(err)
 	}
@@ -238,13 +238,13 @@ func (tr *TokenRequester) FetchNewToken(params providers.TokenRequestParams) (*o
 	return token, nil
 }
 
-func (tr *TokenRequester) DBTokenFromDB(params providers.TokenRequestParams) (*db.OauthToken, error) {
+func (tr *TokenRequester) DBTokenFromDB(params providers.TokenRequestParams) (*mysql.OauthToken, error) {
 	// first check if there's an entry with the current refresh token
-	dbToken, err := db.OauthTokenByAppClientIDClientSecretRefreshToken(context.Background(), tr.db, tr.provider.Name(), params.ClientID, params.ClientSecret, params.RefreshToken)
+	dbToken, err := mysql.OauthTokenByAppClientIDClientSecretRefreshToken(context.Background(), tr.db, tr.provider.Name(), params.ClientID, params.ClientSecret, params.RefreshToken)
 	if errors.Cause(err) == sql.ErrNoRows {
 		// no result, check if there's an entry based on the original refresh
 		// token
-		dbToken, err = db.OauthTokenByAppClientIDClientSecretOriginalRefreshToken(context.Background(), tr.db, tr.provider.Name(), params.ClientID, params.ClientSecret, params.RefreshToken)
+		dbToken, err = mysql.OauthTokenByAppClientIDClientSecretOriginalRefreshToken(context.Background(), tr.db, tr.provider.Name(), params.ClientID, params.ClientSecret, params.RefreshToken)
 	}
 	return dbToken, errors.WithStack(err)
 }
@@ -258,14 +258,15 @@ func (tr *TokenRequester) TokenFromDB(params providers.TokenRequestParams) (*Tok
 	return tr.DBTokenToOauth2Token(dbToken)
 }
 
-func (tr *TokenRequester) DBTokenToOauth2Token(dbToken *db.OauthToken) (*Token, error) {
+func (tr *TokenRequester) DBTokenToOauth2Token(dbToken *mysql.OauthToken) (*Token, error) {
 	var err error
+
 	token := &Token{
 		Token: &oauth2.Token{
 			TokenType:    dbToken.Type,
 			AccessToken:  dbToken.AccessToken,
 			RefreshToken: dbToken.RefreshToken,
-			Expiry:       dbToken.ExpiresAt.Time(),
+			Expiry:       dbToken.ExpiresAt.Time,
 		},
 		Raw: map[string]json.RawMessage{},
 	}
@@ -278,8 +279,8 @@ func (tr *TokenRequester) DBTokenToOauth2Token(dbToken *db.OauthToken) (*Token, 
 	return token, errors.WithStack(err)
 }
 
-func (tr *TokenRequester) SaveNewTokenRequest(params providers.TokenRequestParams) (*db.TokenRequest, error) {
-	tokenRequest := &db.TokenRequest{
+func (tr *TokenRequester) SaveNewTokenRequest(params providers.TokenRequestParams) (*mysql.TokenRequest, error) {
+	tokenRequest := &mysql.TokenRequest{
 		ID:                  0,
 		App:                 tr.provider.Name(),
 		RequestClientID:     params.ClientID,
@@ -290,17 +291,17 @@ func (tr *TokenRequester) SaveNewTokenRequest(params providers.TokenRequestParam
 		RequestCodeVerifier: params.CodeVerifier,
 		ResponseAccessToken: "",
 		ResponseTokenType:   "",
-		ResponseExpiry:      db.NewTime(time.Time{}),
+		ResponseExpiry:      sql.NullTime{},
 		ResponseExtra:       "",
-		CreatedAt:           db.NewTime(time.Now()),
-		UpdatedAt:           db.NewTime(time.Now()),
+		CreatedAt:           (time.Now()),
+		UpdatedAt:           (time.Now()),
 	}
 
 	err := tokenRequest.Save(context.Background(), tr.db)
 	return tokenRequest, errors.WithStack(err)
 }
 
-func (tr *TokenRequester) AddTokenToTokenRequest(request *db.TokenRequest, token Token) (*db.TokenRequest, error) {
+func (tr *TokenRequester) AddTokenToTokenRequest(request *mysql.TokenRequest, token Token) (*mysql.TokenRequest, error) {
 	extra, err := json.Marshal(token.Raw)
 	if err != nil {
 		return request, errors.WithStack(err)
@@ -308,13 +309,13 @@ func (tr *TokenRequester) AddTokenToTokenRequest(request *db.TokenRequest, token
 	request.ResponseAccessToken = token.AccessToken
 	request.ResponseTokenType = token.TokenType
 	request.ResponseRefreshToken = token.RefreshToken
-	request.ResponseExpiry = db.NewTime(token.Expiry)
+	request.ResponseExpiry = sql.NullTime{Time: token.Expiry, Valid: true}
 	request.ResponseExtra = string(extra)
-	request.UpdatedAt = db.NewTime(time.Now())
+	request.UpdatedAt = (time.Now())
 	return request, request.Save(context.Background(), tr.db)
 }
 
-func (tr *TokenRequester) SaveToken(token *Token, params providers.TokenRequestParams) (db.OauthToken, error) {
+func (tr *TokenRequester) SaveToken(token *Token, params providers.TokenRequestParams) (mysql.OauthToken, error) {
 	// @TODO: How to handle this better?
 	// - remove the checking of ErrNoRows
 
@@ -327,24 +328,24 @@ func (tr *TokenRequester) SaveToken(token *Token, params providers.TokenRequestP
 
 	b, err := json.Marshal(token.Raw)
 	if err != nil {
-		return db.OauthToken{}, errors.WithStack(err)
+		return mysql.OauthToken{}, errors.WithStack(err)
 	}
 
 	dbToken, err := tr.DBTokenFromDB(params)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
-			dbToken = &db.OauthToken{
+			dbToken = &mysql.OauthToken{
 				App:                      tr.provider.Name(),
 				Type:                     token.Type(),
 				ClientID:                 params.ClientID,
 				ClientSecret:             params.ClientSecret,
 				OriginalRefreshToken:     originalRefreshToken,
-				CreatedAt:                db.NewTime(time.Now()),
-				CodeExchangeResponseBody: sql.NullString{string(b), true},
+				CreatedAt:                (time.Now()),
+				CodeExchangeResponseBody: sql.NullString{String: string(b), Valid: true},
 				CodeVerifier:             params.CodeVerifier,
 			}
 		} else {
-			return db.OauthToken{}, errors.WithStack(err)
+			return mysql.OauthToken{}, errors.WithStack(err)
 		}
 	}
 
@@ -362,9 +363,8 @@ func (tr *TokenRequester) SaveToken(token *Token, params providers.TokenRequestP
 	// update only changes
 	dbToken.RefreshToken = token.RefreshToken
 	dbToken.AccessToken = token.AccessToken
-	expiry := db.NewTime(token.Expiry)
-	dbToken.ExpiresAt = &expiry
-	dbToken.UpdatedAt = db.NewTime(time.Now())
+	dbToken.ExpiresAt = sql.NullTime{Time: token.Expiry, Valid: true}
+	dbToken.UpdatedAt = (time.Now())
 	return *dbToken, dbToken.Save(context.Background(), tr.db)
 }
 

@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"mime"
 	"net/http"
@@ -20,12 +19,12 @@ import (
 	"time"
 
 	"github.com/getsentry/sentry-go"
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/lytics/logrus"
-	"github.com/omniboost/oauth-proxy/db"
+	"github.com/omniboost/oauth-proxy/mysql"
 	"github.com/omniboost/oauth-proxy/providers"
 	"github.com/pkg/errors"
 	"github.com/xo/dburl"
-	"modernc.org/sqlite"
 )
 
 func NewServer() (*Server, error) {
@@ -149,10 +148,8 @@ func (s *Server) NewDB() (*sql.DB, error) {
 			return nil, errors.WithStack(err)
 		}
 	}
-	sql.Register("moderncsqlite", &sqlite.Driver{})
-	url := fmt.Sprintf("moderncsqlite://%s?loc=auto&_time_format=sqlite&_pragma=busy_timeout=80000&_pragma=journal_mode(WAL)", path)
-	db.SetLogger(fmt.Printf)
-	db, err := dburl.Open(url)
+	db, err := dburl.Open(os.Getenv("DATABASE_URL"))
+	mysql.SetLogger(fmt.Printf)
 	db.SetMaxOpenConns(1)
 	return db, errors.WithStack(err)
 }
@@ -435,10 +432,6 @@ func (s *Server) RevokeToken(provider providers.RevokeProvider, params TokenRevo
 
 func (s *Server) GetTokenRequestParamsFromRequest(r *http.Request) (providers.TokenRequestParams, error) {
 	var err error
-	// body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1<<20))
-	// if err != nil {
-	// 	return trp, fmt.Errorf("oauth2: cannot fetch token: %v", err)
-	// }
 
 	content := r.Header.Get("Content-Type")
 	if content != "" {
@@ -474,7 +467,7 @@ func (s *Server) GetTokenRequestParamsFromFormRequest(r *http.Request) (provider
 	// golang.org/x/oauth2/internal/token.go:181
 	trp := providers.TokenRequestParams{}
 
-	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1<<20))
+	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
 	if err != nil {
 		return trp, errors.WithStack(err)
 	}

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/omniboost/oauth-proxy/db"
+	"github.com/omniboost/oauth-proxy/mysql"
 	"github.com/omniboost/oauth-proxy/providers"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
@@ -107,23 +107,23 @@ func (tr *TokenRevoker) revoke(request RevokeRequest) (*http.Response, error) {
 
 	if resp.StatusCode == http.StatusOK && request.params.Token != "" {
 		if request.params.TokenTypeHint == "refresh_token" {
-			token, err := db.OauthTokenByAppRefreshToken(ctx, tr.db, tr.provider.Name(), request.params.Token)
-			expiresAt := db.NewTime(time.Now())
-			token.RefreshTokenExpiresAt = &expiresAt
+			token, err := mysql.OauthTokenByAppRefreshToken(ctx, tr.db, tr.provider.Name(), request.params.Token)
+			expiresAt := (time.Now())
+			token.RefreshTokenExpiresAt = sql.NullTime{Time: expiresAt, Valid: true}
 			err = token.Save(ctx, tr.db)
 			if err != nil {
 				return nil, errors.WithStack(err)
 			}
 		} else if request.params.TokenTypeHint == "access_token" {
-			tokens, err := db.OauthTokensByAppAccessToken(ctx, tr.db, tr.provider.Name(), request.params.Token)
+			tokens, err := mysql.OauthTokensByAppAccessToken(ctx, tr.db, tr.provider.Name(), request.params.Token)
 			if err != nil {
 				return nil, errors.WithStack(err)
 			}
 
 			// expire tokens
 			for _, t := range tokens {
-				expiresAt := db.NewTime(time.Now())
-				t.ExpiresAt = &expiresAt
+				expiresAt := (time.Now())
+				t.ExpiresAt = sql.NullTime{Time: expiresAt, Valid: true}
 				err := t.Save(ctx, tr.db)
 				if err != nil {
 					return nil, errors.WithStack(err)

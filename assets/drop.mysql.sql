@@ -1,0 +1,4 @@
+START TRANSACTION;
+DROP TABLE IF EXISTS `token_requests`;
+DROP TABLE IF EXISTS `oauth_tokens`;
+COMMIT;
