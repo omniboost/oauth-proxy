@@ -4,7 +4,7 @@ import "context"
 
 func AllIDs(ctx context.Context, db DB) ([]int, error) {
 	// query
-	const sqlstr = `SELECT id FROM oauth_tokens`
+	const sqlstr = `SELECT id FROM oauth_tokens order by updated_at desc`
 	// run
 	logf(sqlstr)
 	rows, err := db.QueryContext(ctx, sqlstr)
