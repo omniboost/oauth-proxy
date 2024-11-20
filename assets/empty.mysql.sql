@@ -4,7 +4,7 @@ CREATE TABLE `oauth_tokens` (
   `app` varchar(32) CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL,
   `type` varchar(16) NOT NULL,
   `client_id` varchar(64) CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL,
-  `client_secret` varchar(128) CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL,
+  `client_secret` varchar(256) CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL,
   `original_refresh_token` varchar(2048) CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL,
   `refresh_token` varchar(2048) CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL,
   `access_token` varchar(4096) CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL,
