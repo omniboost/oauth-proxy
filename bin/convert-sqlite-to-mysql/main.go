@@ -119,6 +119,25 @@ func main() {
 			}
 		}
 
+		// check if the id already exists in mysql
+		id := ot.ID
+		check, err := mysql.OauthTokenByID(context.Background(), mysqlDB, id)
+		if err != nil && err != sql.ErrNoRows {
+			log.Fatal(err)
+		}
+
+		// if the token already exists, use that id
+		if mysqlToken != nil {
+			log.Printf("using existing id %d", mysqlToken.ID)
+    		id = mysqlToken.ID
+		}
+
+		// the token doesn't exist, but the id already exists, use a new id
+		if mysqlToken == nil && check != nil {
+			log.Printf("using new id %d", id)
+			id = 0
+		}
+
 		// update the existing mysqltoken so the _exists field is set
 		expiresAt := sql.NullTime{}
 		if ot.ExpiresAt != nil && !ot.ExpiresAt.Time().IsZero() {
@@ -129,7 +148,7 @@ func main() {
 			refreshTokenExpiresAt = sql.NullTime{Time: ot.RefreshTokenExpiresAt.Time().Round(time.Microsecond), Valid: true}
 		}
 		mysqlToken = &mysql.OauthToken{
-			ID:                       ot.ID,
+			ID:                       id,
 			App:                      ot.App,
 			Type:                     ot.Type,
 			ClientID:                 ot.ClientID,
