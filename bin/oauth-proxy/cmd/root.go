@@ -12,7 +12,7 @@ import (
 	"github.com/lytics/logrus"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/motemen/go-loghttp"
-	"github.com/omniboost/oauth-proxy/db"
+	"github.com/omniboost/oauth-proxy/mysql"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -32,10 +32,10 @@ var rootCmd = &cobra.Command{
 	// 	log.Println(cmd, args)
 	// 	serverCmd.Run(cmd, args)
 	// },
-	RunE: func(cmd *cobra.Command, args []string) error {
-		// @TODO: this doesn't parse subcmd flags
-		return serverCmd.Execute()
-	},
+	// RunE: func(cmd *cobra.Command, args []string) error {
+	// 	// @TODO: this doesn't parse subcmd flags
+	// 	return serverCmd.Execute()
+	// },
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -43,6 +43,12 @@ var rootCmd = &cobra.Command{
 func Execute() {
 	// Flush buffered events before the program terminates.
 	defer sentry.Flush(2 * time.Second)
+
+	if len(os.Args) == 1 {
+		os.Args = append([]string{os.Args[0], "server"}, os.Args[1:]...)
+	} else if len(os.Args) > 1 {
+		checkRootAlias(os.Args[1], nonRootSubCmds())
+	}
 
 	if err := rootCmd.Execute(); err != nil {
 		sentry.CaptureException(err)
@@ -132,7 +138,7 @@ func initLogger() {
 	}
 
 	// Init logging of queries
-	db.XOLog = func(s string, p ...interface{}) {
+	mysql.XOLog = func(s string, p ...interface{}) {
 		logrus.Debug("> SQL: %s -- params: %v\n", s, p)
 	}
 }
@@ -151,4 +157,22 @@ func initSentry() {
 func logErrorAndExit(err error) {
 	logrus.Error(err)
 	os.Exit(1)
+}
+
+func checkRootAlias(a string, b []string) {
+	for _, v := range b {
+		if a == v {
+			return
+		}
+	}
+	os.Args = append([]string{os.Args[0], "server"}, os.Args[1:]...)
+}
+
+func nonRootSubCmds() []string {
+	l := []string{}
+	for _, c := range rootCmd.Commands() {
+		l = append(l, c.Name())
+		l = append(l, c.Aliases...)
+	}
+	return l
 }

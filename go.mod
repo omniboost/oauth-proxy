@@ -3,6 +3,8 @@ module github.com/omniboost/oauth-proxy
 go 1.23.2
 
 require (
+	github.com/aws/aws-lambda-go v1.47.0
+	github.com/awslabs/aws-lambda-go-api-proxy v0.16.2
 	github.com/coreos/go-oidc/v3 v3.11.0
 	github.com/felixge/httpsnoop v1.0.4
 	github.com/getsentry/sentry-go v0.29.1

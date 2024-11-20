@@ -5,12 +5,15 @@ import (
 	"database/sql"
 	"log"
 	"os"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/omniboost/oauth-proxy/mysql"
 	"github.com/omniboost/oauth-proxy/providers"
 	"github.com/xo/dburl"
+	"golang.org/x/exp/rand"
 	"golang.org/x/oauth2"
 )
 
@@ -21,12 +24,18 @@ var (
 func TestMain(m *testing.M) {
 	var err error
 
-	// db.SetLogger(fmt.Printf)
+	mysql.SetLogger(log.Printf)
 	dbh, err = dburl.Open(os.Getenv("DATABASE_URL"))
 	if err != nil {
 		log.Fatal(err)
 	}
-	dbh.SetMaxOpenConns(1)
+	// dbh.SetMaxOpenConns(1)
+	// dbh.SetConnMaxIdleTime(time.Second)
+	// dbh.SetConnMaxLifetime(time.Second)
+
+	// set wait timeout
+	// dbh.Exec("SET GLOBAL wait_timeout = 5")
+	// dbh.Exec("SET autocommit = 0")
 
 	q, err := os.ReadFile("assets/drop.mysql.sql")
 	if err != nil {
@@ -86,4 +95,59 @@ func (ts MockTokenSource) Token() (*oauth2.Token, error) {
 		Expiry:       time.Time{},
 		ExpiresIn:    0,
 	}, nil
+}
+
+type RandomProvider struct {
+	name        string
+	tokenSource *RandomTokenSource
+}
+
+func NewRandomProvider() *RandomProvider {
+	return &RandomProvider{
+		tokenSource: &RandomTokenSource{},
+	}
+}
+
+func (v *RandomProvider) Name() string {
+	return "RANDOM"
+}
+
+func (v *RandomProvider) Route() string {
+	return "/RANDOM/oauth2/token"
+}
+
+func (v RandomProvider) Exchange(ctx context.Context, params providers.TokenRequestParams, opts ...oauth2.AuthCodeOption) (*oauth2.Token, error) {
+	return v.TokenSource(ctx, params).Token()
+}
+
+func (v RandomProvider) TokenSource(ctx context.Context, params providers.TokenRequestParams) oauth2.TokenSource {
+	return v.tokenSource
+}
+func (v RandomProvider) Called() uint64 {
+    return v.tokenSource.Called.Load()
+}
+
+type RandomTokenSource struct {
+	Called atomic.Uint64
+}
+
+func (ts *RandomTokenSource) Token() (*oauth2.Token, error) {
+	ts.Called.Add(1)
+	token := RandStringRunes(32)
+	return &oauth2.Token{
+		AccessToken:  token,
+		RefreshToken: token,
+		Expiry:       time.Now().Add(time.Hour * 3),
+		ExpiresIn:    10800,
+	}, nil
+}
+
+var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+func RandStringRunes(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+	return string(b)
 }

@@ -15,8 +15,7 @@ CREATE TABLE `oauth_tokens` (
   `code_verifier` varchar(128) NOT NULL DEFAULT '',
   `refresh_token_expires_at` datetime(6) DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `ot_app__token` (`app`,`refresh_token`) USING BTREE,
-  UNIQUE KEY `ot_app_client_id_client_secret_original_refresh_token` (`app`,`client_id`,`client_secret`,`original_refresh_token`) USING BTREE,
+  INDEX `ot_app_client_id_client_secret` (`app`,`client_id`,`client_secret`) USING BTREE,
   UNIQUE KEY `ot_app_client_id_client_secret_refresh_token` (`app`,`client_id`,`client_secret`,`refresh_token`) USING BTREE,
   UNIQUE KEY `ot_app_original_refresh_token` (`app`,`original_refresh_token`) USING BTREE,
   UNIQUE KEY `ot_app_refresh_token` (`app`,`refresh_token`) USING BTREE

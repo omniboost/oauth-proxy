@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"log"
+
 	oauthproxy "github.com/omniboost/oauth-proxy"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -14,17 +16,20 @@ var serverCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		err := viper.BindPFlags(cmd.Flags())
 		if err != nil {
+			log.Fatal(err)
 			return err
 		}
 
 		s, err := oauthproxy.NewServer()
 		if err != nil {
+			log.Fatal(err)
 			return err
 		}
 
 		port := viper.GetInt("port")
 		s.SetPort(port)
 		s.Start()
+		log.Fatal(err)
 		return nil
 	},
 }

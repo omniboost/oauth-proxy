@@ -36,3 +36,24 @@ func OauthTokensByAppAccessToken(ctx context.Context, db DB, app, accessToken st
 	}
 	return res, nil
 }
+
+func OauthTokenByAppClientIDClientSecretRefreshTokenOrOriginalRefreshToken(ctx context.Context, db DB, app, clientID, clientSecret, refreshToken string) (*OauthToken, error) {
+	// query
+	const sqlstr = `SELECT ` +
+		`id, app, type, client_id, client_secret, original_refresh_token, refresh_token, access_token, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier, refresh_token_expires_at ` +
+		`FROM oauth_proxy.oauth_tokens ` +
+		`USE INDEX (ot_app_client_id_client_secret) ` +
+		`WHERE app = ? AND client_id = ? AND client_secret = ? ` +
+		`AND (refresh_token = ? OR original_refresh_token = ?)` +
+		`FOR UPDATE`
+	// run
+	logf(sqlstr, app, clientID, clientSecret, refreshToken, refreshToken)
+	ot := OauthToken{
+		_exists: true,
+	}
+	if err := db.QueryRowContext(ctx, sqlstr, app, clientID, clientSecret, refreshToken, refreshToken).Scan(&ot.ID, &ot.App, &ot.Type, &ot.ClientID, &ot.ClientSecret, &ot.OriginalRefreshToken, &ot.RefreshToken, &ot.AccessToken, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt, &ot.CodeExchangeResponseBody, &ot.CodeVerifier, &ot.RefreshTokenExpiresAt); err != nil {
+		return nil, logerror(err)
+	}
+	return &ot, nil
+}
+

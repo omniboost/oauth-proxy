@@ -4,14 +4,20 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/lytics/logrus"
 	oauthproxy "github.com/omniboost/oauth-proxy"
 	"github.com/omniboost/oauth-proxy/mysql"
 	"github.com/omniboost/oauth-proxy/providers"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
+)
+
+const (
+	parallel = 10
 )
 
 func TestTokenRequester(t *testing.T) {
@@ -37,13 +43,13 @@ func TestTokenRequester(t *testing.T) {
 		CodeVerifier: "",
 	}
 
-	tokenRequest, err := tr.SaveNewTokenRequest(params)
+	tokenRequest, err := tr.SaveNewTokenRequest(dbh, params)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	_, err = tr.TokenFromDB(params)
+	_, err = tr.TokenFromDB(dbh, params)
 	if err == nil {
 		t.Error("expected error, got nil")
 		return
@@ -53,13 +59,13 @@ func TestTokenRequester(t *testing.T) {
 		return
 	}
 
-	dbToken, err := tr.SaveToken(&proxyToken, params)
+	dbToken, err := tr.SaveToken(dbh, &proxyToken, params)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	dbToken2, err := tr.DBTokenFromDB(params)
+	dbToken2, err := tr.DBTokenFromDB(dbh, params)
 	if err != nil {
 		t.Error(err)
 		return
@@ -104,13 +110,13 @@ func TestTokenRequester(t *testing.T) {
 		t.Errorf("expected %s, got %s", `{"test":"TEST"}`, dbToken2.CodeExchangeResponseBody.String)
 		return
 	}
-	if dbToken2.ExpiresAt.Time.Equal(now) {
+	if !dbToken2.ExpiresAt.Time.Equal(now) {
 		t.Errorf("expected %s, got %s", dbToken2.ExpiresAt.Time, now)
 		return
 	}
 
 	// add new token to token request
-	tokenRequest, err = tr.AddTokenToTokenRequest(tokenRequest, proxyToken)
+	tokenRequest, err = tr.AddTokenToTokenRequest(dbh, tokenRequest, proxyToken)
 	if err != nil {
 		t.Error(err)
 		return
@@ -205,7 +211,7 @@ func TestTokenExpired(t *testing.T) {
 		Token: token,
 		Raw:   map[string]json.RawMessage{},
 	}
-	_, err := tr.SaveToken(&proxyToken, params)
+	_, err := tr.SaveToken(dbh, &proxyToken, params)
 	if err != nil {
 		t.Error(err)
 		return
@@ -224,53 +230,72 @@ func TestTokenExpired(t *testing.T) {
 	}
 }
 
-func TestTokenValid(t *testing.T) {
-	// test TokenRefresh
-	// insert token in db with local timezone with expiry < 1 minute in the future
-	// retrieve the token and see if it still is expired
-
-	provider := NewMockProvider()
+func TestTokenRefreshParallel(t *testing.T) {
+	var err error
+	provider := NewRandomProvider()
 	tr := oauthproxy.NewTokenRequester(dbh, provider)
 
 	now := time.Now()
 	params := providers.TokenRequestParams{
-		ClientID:     "TEST_TOKEN_VALID",
-		ClientSecret: "TEST_TOKEN_VALID",
-		RefreshToken: "TEST_TOKEN_VALID",
+		ClientID:     "TEST_TOKEN_PARALLEL",
+		ClientSecret: "TEST_TOKEN_PARALLEL",
+		RefreshToken: "TEST_TOKEN_PARALLEL",
 		Code:         "",
 		RedirectURL:  "http://localhost:8080",
 		CodeVerifier: "",
 	}
+
+	// create expired token
 	token := &oauth2.Token{
-		AccessToken:  "TEST_TOKEN_VALID",
-		RefreshToken: "TEST_TOKEN_VALID",
-		Expiry:       now.Add(time.Second * 20),
+		AccessToken:  "TEST_TOKEN_PARALLEL",
+		RefreshToken: "TEST_TOKEN_PARALLEL",
+		Expiry:       now.Add(time.Hour * -24),
 		TokenType:    "Bearer",
 	}
 	proxyToken := oauthproxy.Token{
 		Token: token,
 		Raw:   map[string]json.RawMessage{},
 	}
-	_, err := tr.SaveToken(&proxyToken, params)
+	_, err = tr.SaveToken(dbh, &proxyToken, params)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	tokenRequest := tr.NewTokenRequest(params)
-	newToken, err := tr.TokenRefresh(tokenRequest)
-	if err != nil {
-		t.Error(err)
+	logrus.SetLevel(logrus.DebugLevel)
+
+	// create token requests
+	requests := make([]oauthproxy.TokenRequest, parallel)
+	for i := 0; i < parallel; i++ {
+		requests[i] = tr.NewTokenRequest(params)
+	}
+
+	// execute token requests parallel
+	tokens := make([]*oauthproxy.Token, parallel)
+	wg := &sync.WaitGroup{}
+	wg.Add(parallel)
+	for i, request := range requests {
+		go func(request oauthproxy.TokenRequest) {
+			tokens[i], err = tr.TokenRefresh(request)
+			wg.Done()
+			if err != nil {
+				t.Errorf("%+v", err)
+			}
+		}(request)
+	}
+	wg.Wait()
+
+	// random provider should be called once
+	if provider.Called() != 1 {
+		t.Errorf("expected 1 call, got %d", provider.Called())
 		return
 	}
 
-	if !newToken.Valid() {
-		t.Errorf("expected token to be valid, but expired at %s", newToken.Expiry)
-		return
-	}
-
-	if newToken.RefreshToken != "TEST_TOKEN_VALID" {
-		t.Error("expected to receive the same token back, because it's still valid")
-		return
+	// every token should be the same
+	for i := 1; i < parallel; i++ {
+		if tokens[i].RefreshToken != tokens[i-1].RefreshToken {
+			t.Errorf("expected same token, got %s and %s", tokens[0].RefreshToken, tokens[i].RefreshToken)
+			return
+		}
 	}
 }

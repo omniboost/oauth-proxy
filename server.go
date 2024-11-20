@@ -18,6 +18,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/awslabs/aws-lambda-go-api-proxy/httpadapter"
 	"github.com/getsentry/sentry-go"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/lytics/logrus"
@@ -125,30 +127,10 @@ func (s *Server) Addr() string {
 }
 
 func (s *Server) NewDB() (*sql.DB, error) {
-	path := os.Getenv("SQLITE_DB")
-	if path == "" {
-		path = "db/production.sqlite3"
-	}
-	_, err := os.Stat(path)
-	if os.IsNotExist(err) {
-		src, err := Assets.Open("empty.sqlite3")
-		if err != nil {
-			return nil, errors.WithStack(err)
-		}
-		defer src.Close()
-
-		dest, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0666)
-		if err != nil {
-			return nil, errors.WithStack(err)
-		}
-		defer dest.Close()
-
-		_, err = io.Copy(dest, src)
-		if err != nil {
-			return nil, errors.WithStack(err)
-		}
-	}
 	db, err := dburl.Open(os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
 	mysql.SetLogger(fmt.Printf)
 	db.SetMaxOpenConns(1)
 	return db, errors.WithStack(err)
@@ -159,6 +141,19 @@ func (s *Server) SetDB(db *sql.DB) {
 }
 
 func (s *Server) Start() error {
+	if os.Getenv("AWS_LAMBDA_FUNCTION_NAME") != "" {
+		return s.StartLambda()
+	} else {
+		return s.StartLocal()
+	}
+}
+
+func (s *Server) StartLambda() error {
+	lambda.Start(httpadapter.New(s.router).ProxyWithContext)
+	return nil
+}
+
+func (s *Server) StartLocal() error {
 	errChan := make(chan error, 1)
 	// run our server in a goroutine so that it doesn't block.
 	go func() {

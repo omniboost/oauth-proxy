@@ -127,7 +127,7 @@ func (tr *TokenRequester) CodeExchange(req TokenRequest) (*Token, error) {
 		return token, errors.WithStack(err)
 	}
 
-	_, err = tr.SaveToken(token, params)
+	_, err = tr.SaveToken(tr.db, token, params)
 	if err != nil {
 		return token, err
 	}
@@ -136,15 +136,42 @@ func (tr *TokenRequester) CodeExchange(req TokenRequest) (*Token, error) {
 }
 
 func (tr *TokenRequester) TokenRefresh(req TokenRequest) (*Token, error) {
+	var err error
+	token := &Token{}
 	params := req.params
 	logrus.Debugf("new token refresh request received (%s)", params.RefreshToken)
 
-	token := &Token{}
-	dbToken, err := tr.DBTokenFromDB(params)
+	trx, err := tr.db.Begin()
+	if err != nil {
+		return token, errors.WithStack(err)
+	}
+	defer func() {
+		if err != nil {
+			logrus.Debugf(err.Error())
+			trx.Rollback()
+		} else {
+			err = trx.Commit()
+		}
+	}()
+
+	// // lock db for this key
+	// key := strings.Join([]string{tr.provider.Name(), params.ClientID, params.ClientSecret, params.RefreshToken}, ":")
+	// _, err := tr.db.Exec("SELECT GET_LOCK(?, 10)", key)
+	// if err != nil {
+	// 	return token, errors.WithStack(err)
+	// }
+	// defer func() {
+	// 	_, err := tr.db.Exec("SELECT RELEASE_LOCK(?)", key)
+	// 	if err != nil {
+	// 		logrus.Debugf(err.Error())
+	// 	}
+	// }()
+
+	dbToken, err := tr.DBTokenFromDB(trx, params)
 	if errors.Cause(err) == sql.ErrNoRows {
 		// no results in db: request new token
 		logrus.Debugf("couldn't find refresh token in database, requesting new token (%s)", params.RefreshToken)
-		token, err := tr.fetchAndSaveNewToken(params)
+		token, err := tr.fetchAndSaveNewToken(trx, params)
 		if err != nil {
 			return token, errors.WithStack(err)
 		}
@@ -179,7 +206,7 @@ func (tr *TokenRequester) TokenRefresh(req TokenRequest) (*Token, error) {
 	if params.CodeVerifier == "" && dbToken.CodeVerifier != "" {
 		params.CodeVerifier = dbToken.CodeVerifier
 	}
-	token, err = tr.fetchAndSaveNewToken(params)
+	token, err = tr.fetchAndSaveNewToken(trx, params)
 	if err != nil {
 		return token, errors.WithStack(err)
 	}
@@ -238,19 +265,14 @@ func (tr *TokenRequester) FetchNewToken(params providers.TokenRequestParams) (*o
 	return token, nil
 }
 
-func (tr *TokenRequester) DBTokenFromDB(params providers.TokenRequestParams) (*mysql.OauthToken, error) {
+func (tr *TokenRequester) DBTokenFromDB(db mysql.DB, params providers.TokenRequestParams) (*mysql.OauthToken, error) {
 	// first check if there's an entry with the current refresh token
-	dbToken, err := mysql.OauthTokenByAppClientIDClientSecretRefreshToken(context.Background(), tr.db, tr.provider.Name(), params.ClientID, params.ClientSecret, params.RefreshToken)
-	if errors.Cause(err) == sql.ErrNoRows {
-		// no result, check if there's an entry based on the original refresh
-		// token
-		dbToken, err = mysql.OauthTokenByAppClientIDClientSecretOriginalRefreshToken(context.Background(), tr.db, tr.provider.Name(), params.ClientID, params.ClientSecret, params.RefreshToken)
-	}
+	dbToken, err := mysql.OauthTokenByAppClientIDClientSecretRefreshTokenOrOriginalRefreshToken(context.Background(), db, tr.provider.Name(), params.ClientID, params.ClientSecret, params.RefreshToken)
 	return dbToken, errors.WithStack(err)
 }
 
-func (tr *TokenRequester) TokenFromDB(params providers.TokenRequestParams) (*Token, error) {
-	dbToken, err := tr.DBTokenFromDB(params)
+func (tr *TokenRequester) TokenFromDB(db mysql.DB, params providers.TokenRequestParams) (*Token, error) {
+	dbToken, err := tr.DBTokenFromDB(db, params)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -279,7 +301,7 @@ func (tr *TokenRequester) DBTokenToOauth2Token(dbToken *mysql.OauthToken) (*Toke
 	return token, errors.WithStack(err)
 }
 
-func (tr *TokenRequester) SaveNewTokenRequest(params providers.TokenRequestParams) (*mysql.TokenRequest, error) {
+func (tr *TokenRequester) SaveNewTokenRequest(db mysql.DB, params providers.TokenRequestParams) (*mysql.TokenRequest, error) {
 	tokenRequest := &mysql.TokenRequest{
 		ID:                  0,
 		App:                 tr.provider.Name(),
@@ -297,11 +319,11 @@ func (tr *TokenRequester) SaveNewTokenRequest(params providers.TokenRequestParam
 		UpdatedAt:           (time.Now()),
 	}
 
-	err := tokenRequest.Save(context.Background(), tr.db)
+	err := tokenRequest.Save(context.Background(), db)
 	return tokenRequest, errors.WithStack(err)
 }
 
-func (tr *TokenRequester) AddTokenToTokenRequest(request *mysql.TokenRequest, token Token) (*mysql.TokenRequest, error) {
+func (tr *TokenRequester) AddTokenToTokenRequest(db mysql.DB, request *mysql.TokenRequest, token Token) (*mysql.TokenRequest, error) {
 	extra, err := json.Marshal(token.Raw)
 	if err != nil {
 		return request, errors.WithStack(err)
@@ -312,10 +334,10 @@ func (tr *TokenRequester) AddTokenToTokenRequest(request *mysql.TokenRequest, to
 	request.ResponseExpiry = sql.NullTime{Time: token.Expiry, Valid: true}
 	request.ResponseExtra = string(extra)
 	request.UpdatedAt = (time.Now())
-	return request, request.Save(context.Background(), tr.db)
+	return request, request.Save(context.Background(), db)
 }
 
-func (tr *TokenRequester) SaveToken(token *Token, params providers.TokenRequestParams) (mysql.OauthToken, error) {
+func (tr *TokenRequester) SaveToken(db mysql.DB, token *Token, params providers.TokenRequestParams) (mysql.OauthToken, error) {
 	// @TODO: How to handle this better?
 	// - remove the checking of ErrNoRows
 
@@ -331,7 +353,7 @@ func (tr *TokenRequester) SaveToken(token *Token, params providers.TokenRequestP
 		return mysql.OauthToken{}, errors.WithStack(err)
 	}
 
-	dbToken, err := tr.DBTokenFromDB(params)
+	dbToken, err := tr.DBTokenFromDB(db, params)
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			dbToken = &mysql.OauthToken{
@@ -365,7 +387,7 @@ func (tr *TokenRequester) SaveToken(token *Token, params providers.TokenRequestP
 	dbToken.AccessToken = token.AccessToken
 	dbToken.ExpiresAt = sql.NullTime{Time: token.Expiry, Valid: true}
 	dbToken.UpdatedAt = (time.Now())
-	return *dbToken, dbToken.Save(context.Background(), tr.db)
+	return *dbToken, dbToken.Save(context.Background(), db)
 }
 
 func (tr *TokenRequester) handleResults(request TokenRequest, token *Token, err error) {
@@ -376,8 +398,8 @@ func (tr *TokenRequester) handleResults(request TokenRequest, token *Token, err 
 	request.result <- result
 }
 
-func (tr *TokenRequester) fetchAndSaveNewToken(params providers.TokenRequestParams) (*Token, error) {
-	trDB, err := tr.SaveNewTokenRequest(params)
+func (tr *TokenRequester) fetchAndSaveNewToken(db mysql.DB, params providers.TokenRequestParams) (*Token, error) {
+	trDB, err := tr.SaveNewTokenRequest(db, params)
 	if err != nil {
 		return &Token{}, errors.WithStack(err)
 	}
@@ -389,13 +411,13 @@ func (tr *TokenRequester) fetchAndSaveNewToken(params providers.TokenRequestPara
 		return token, e
 	}
 
-	trDB, err = tr.AddTokenToTokenRequest(trDB, *token)
+	trDB, err = tr.AddTokenToTokenRequest(db, trDB, *token)
 	if err != nil {
 		return token, errors.WithStack(err)
 	}
 
 	logrus.Debugf("saving new token to database (%s)", params.RefreshToken)
-	_, err = tr.SaveToken(token, params)
+	_, err = tr.SaveToken(db, token, params)
 	if err != nil {
 		e := errors.Wrapf(err, "something went wrong saving a new token to the database (%s): %s", params.RefreshToken, err)
 		return token, e
