@@ -67,7 +67,7 @@ func main() {
 		}
 
 		// check if exists in mysql
-		mysqlToken, err := mysql.OauthTokenByAppClientIDClientSecretRefreshToken(context.Background(), mysqlDB, ot.App, ot.ClientID, ot.ClientSecret, ot.RefreshToken)
+		mysqlToken, err := mysql.OauthTokenByAppClientIDClientSecretOriginalRefreshToken(context.Background(), mysqlDB, ot.App, ot.ClientID, ot.ClientSecret, ot.OriginalRefreshToken)
 		if err != nil && err != sql.ErrNoRows {
 			log.Fatal(err)
 		}
@@ -134,7 +134,7 @@ func main() {
 
 		// the token doesn't exist, but the id already exists, use a new id
 		if mysqlToken == nil && check != nil {
-			log.Printf("using new id %d", id)
+			log.Printf("using new id for %d, can't find it by app:%s, client_id:%s, client_secret:%s, refresh_token:%s", id, ot.App, ot.ClientID, ot.ClientSecret, ot.RefreshToken)
 			id = 0
 		}
 
