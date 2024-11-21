@@ -139,6 +139,10 @@ func (tr *TokenRequester) TokenRefresh(req TokenRequest) (*Token, error) {
 	var err error
 	token := &Token{}
 	params := req.params
+	if params.RefreshToken == "" {
+		return nil, errors.New("refresh token is empty")
+	}
+
 	logrus.Debugf("new token refresh request received (%s)", params.RefreshToken)
 
 	trx, err := tr.db.Begin()
