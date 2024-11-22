@@ -119,6 +119,12 @@ func main() {
 			}
 		}
 
+		// if the mysqltoken is newer: don't update it
+		if mysqlToken != nil &&mysqlToken.UpdatedAt.After(ot.UpdatedAt.Time()) {
+			// mysql db contains a newer token: don't update it
+			continue
+		}
+
 		// check if the id already exists in mysql
 		id := ot.ID
 		check, err := mysql.OauthTokenByID(context.Background(), mysqlDB, id)
