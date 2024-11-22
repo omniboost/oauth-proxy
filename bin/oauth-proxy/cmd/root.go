@@ -100,6 +100,13 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
+
+	// pickup env vars
+	rootCmd.Flags().VisitAll(func(f *pflag.Flag) {
+		if viper.IsSet(f.Name) {
+			rootCmd.Flags().Set(f.Name, viper.GetString(f.Name))
+		}
+	})
 }
 
 func initLogger() {
