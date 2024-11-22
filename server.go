@@ -149,7 +149,7 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) StartLambda() error {
-	lambda.Start(httpadapter.New(s.router).ProxyWithContext)
+	lambda.Start(httpadapter.NewV2(s.router).ProxyWithContext)
 	return nil
 }
 
