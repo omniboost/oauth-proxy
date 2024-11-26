@@ -45,6 +45,8 @@ func OauthTokenByAppClientIDClientSecretRefreshTokenOrOriginalRefreshToken(ctx c
 		`USE INDEX (ot_app_client_id_client_secret) ` +
 		`WHERE app = ? AND client_id = ? AND client_secret = ? ` +
 		`AND (refresh_token = ? OR original_refresh_token = ?)` +
+		`ORDER BY updated_at DESC ` +
+		`LIMIT 1 ` +
 		`FOR UPDATE`
 	// run
 	logf(sqlstr, app, clientID, clientSecret, refreshToken, refreshToken)
