@@ -46,6 +46,9 @@ func NewServer() (*Server, error) {
 	// router depends on providers
 	s.SetRouter(s.NewRouter())
 
+	// set default http client
+	s.client = s.NewClient()
+
 	return s, nil
 }
 
@@ -58,6 +61,7 @@ type Server struct {
 	providers       providers.Providers
 	tokenRequesters map[string]*TokenRequester
 	tokenRevokers   map[string]*TokenRevoker
+	client          *http.Client
 }
 
 func (s *Server) NewHTTP() *http.Server {
@@ -101,7 +105,7 @@ func (s *Server) NewRouter() *http.ServeMux {
 	r := http.NewServeMux()
 
 	for _, prov := range s.providers {
-		r.Handle(prov.Route(), logToGrafana(s.NewProviderTokenHandler(prov)))
+		r.Handle(prov.Route(), s.logToGrafana(s.NewProviderTokenHandler(prov)))
 
 		if i, ok := prov.(providers.RevokeProvider); ok {
 			logrus.Debugf("Adding revoke route for provider %s", prov.Name())
@@ -374,7 +378,13 @@ func (s *Server) NewProviderRevokeHandler(provider providers.RevokeProvider) htt
 }
 
 func (s *Server) NewClient() *http.Client {
-	return http.DefaultClient
+	return &http.Client{
+		Timeout: 5 * time.Second,
+		Transport: &http.Transport{
+			TLSHandshakeTimeout:   5 * time.Second,
+			ResponseHeaderTimeout: 5 * time.Second,
+		},
+	}
 }
 
 func (s *Server) ErrorResponse(w http.ResponseWriter, err error) {

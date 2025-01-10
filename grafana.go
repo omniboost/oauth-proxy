@@ -21,7 +21,7 @@ var (
 	GRAFANA_LOKI_TOKEN = os.Getenv("GRAFANA_LOKI_TOKEN")
 )
 
-func PushRequestResponseToGrafana(r *http.Request, w http.ResponseWriter, metrics httpsnoop.Metrics) error {
+func (s *Server) PushRequestResponseToGrafana(r *http.Request, w http.ResponseWriter, metrics httpsnoop.Metrics) error {
 	if GRAFANA_LOKI_URL == "" {
 		return nil
 	}
@@ -76,27 +76,20 @@ func PushRequestResponseToGrafana(r *http.Request, w http.ResponseWriter, metric
 	grafanaReq, err := http.NewRequest("POST", GRAFANA_LOKI_URL, bytes.NewBuffer(buf))
 	grafanaReq.SetBasicAuth(GRAFANA_LOKI_USER, GRAFANA_LOKI_TOKEN)
 	grafanaReq.Header.Set("Content-Type", "application/x-protobuf")
-	client := http.Client{
-		Timeout: 5 * time.Second,
-		Transport: &http.Transport{
-			TLSHandshakeTimeout:   5 * time.Second,
-			ResponseHeaderTimeout: 5 * time.Second,
-		},
-	}
 
 	// make request
-	grafanaResp, err := client.Do(grafanaReq)
+	grafanaResp, err := s.client.Do(grafanaReq)
 	if err != nil {
 		return errors.WithStack(err)
 	}
 	return grafanaResp.Body.Close()
 }
 
-func logToGrafana(h http.Handler) http.Handler {
+func (s *Server) logToGrafana(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		func() {
 			metrics := httpsnoop.CaptureMetrics(h, w, r)
-			err := PushRequestResponseToGrafana(r, w, metrics)
+			err := s.PushRequestResponseToGrafana(r, w, metrics)
 			if err != nil {
 				logrus.Debug("PushRequestResponseToGrafana error: ", err)
 			}
