@@ -175,7 +175,7 @@ func (tr *TokenRequester) TokenRefresh(req TokenRequest) (*Token, error) {
 	if errors.Cause(err) == sql.ErrNoRows {
 		// no results in db: request new token
 		logrus.Debugf("couldn't find refresh token in database, requesting new token (%s)", params.RefreshToken)
-		token, err := tr.fetchAndSaveNewToken(trx, params)
+		token, err = tr.fetchAndSaveNewToken(trx, params)
 		if err != nil {
 			return token, errors.WithStack(err)
 		}
