@@ -305,6 +305,7 @@ func (tr *TokenRequester) SaveNewTokenRequest(db mysql.DB, params providers.Toke
 	tokenRequest := &mysql.TokenRequest{
 		ID:                  0,
 		App:                 tr.provider.Name(),
+		RequestGrantType:    params.GrantType,
 		RequestClientID:     params.ClientID,
 		RequestClientSecret: params.ClientSecret,
 		RequestRefreshToken: params.RefreshToken,
@@ -359,6 +360,7 @@ func (tr *TokenRequester) SaveToken(db mysql.DB, token *Token, params providers.
 			dbToken = &mysql.OauthToken{
 				App:                      tr.provider.Name(),
 				Type:                     token.Type(),
+				GrantType:                params.GrantType,
 				ClientID:                 params.ClientID,
 				ClientSecret:             params.ClientSecret,
 				OriginalRefreshToken:     originalRefreshToken,

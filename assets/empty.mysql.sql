@@ -3,6 +3,7 @@ CREATE TABLE `oauth_tokens` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `app` varchar(32) CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL,
   `type` varchar(16) NOT NULL,
+  `grant_type` varchar(24) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT 'authorization_code' NOT NULL,
   `client_id` varchar(64) CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL,
   `client_secret` varchar(256) CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL,
   `original_refresh_token` varchar(2048) CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL,
@@ -23,6 +24,7 @@ CREATE TABLE `oauth_tokens` (
 CREATE TABLE `token_requests` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `app` varchar(32) CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL,
+  `request_grant_type` varchar(24) CHARACTER SET latin1 COLLATE latin1_swedish_ci DEFAULT 'authorization_code' NOT NULL,
   `request_client_id` varchar(64) CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL,
   `request_client_secret` varchar(256) CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL,
   `request_refresh_token` varchar(2048) CHARACTER SET latin1 COLLATE latin1_swedish_ci NOT NULL,

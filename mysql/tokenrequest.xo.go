@@ -12,6 +12,7 @@ import (
 type TokenRequest struct {
 	ID                   int          `json:"id"`                     // id
 	App                  string       `json:"app"`                    // app
+	RequestGrantType     string       `json:"request_grant_type"`     // request_grant_type
 	RequestClientID      string       `json:"request_client_id"`      // request_client_id
 	RequestClientSecret  string       `json:"request_client_secret"`  // request_client_secret
 	RequestRefreshToken  string       `json:"request_refresh_token"`  // request_refresh_token
@@ -50,13 +51,13 @@ func (tr *TokenRequest) Insert(ctx context.Context, db DB) error {
 	}
 	// insert (primary key generated and returned by database)
 	const sqlstr = `INSERT INTO oauth_proxy.token_requests (` +
-		`app, request_client_id, request_client_secret, request_refresh_token, request_code, request_redirect_url, request_code_verifier, response_access_token, response_token_type, response_refresh_token, response_expiry, response_extra, created_at, updated_at` +
+		`app, request_grant_type, request_client_id, request_client_secret, request_refresh_token, request_code, request_redirect_url, request_code_verifier, response_access_token, response_token_type, response_refresh_token, response_expiry, response_extra, created_at, updated_at` +
 		`) VALUES (` +
-		`?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?` +
+		`?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?` +
 		`)`
 	// run
-	logf(sqlstr, tr.App, tr.RequestClientID, tr.RequestClientSecret, tr.RequestRefreshToken, tr.RequestCode, tr.RequestRedirectURL, tr.RequestCodeVerifier, tr.ResponseAccessToken, tr.ResponseTokenType, tr.ResponseRefreshToken, tr.ResponseExpiry, tr.ResponseExtra, tr.CreatedAt, tr.UpdatedAt)
-	res, err := db.ExecContext(ctx, sqlstr, tr.App, tr.RequestClientID, tr.RequestClientSecret, tr.RequestRefreshToken, tr.RequestCode, tr.RequestRedirectURL, tr.RequestCodeVerifier, tr.ResponseAccessToken, tr.ResponseTokenType, tr.ResponseRefreshToken, tr.ResponseExpiry, tr.ResponseExtra, tr.CreatedAt, tr.UpdatedAt)
+	logf(sqlstr, tr.App, tr.RequestGrantType, tr.RequestClientID, tr.RequestClientSecret, tr.RequestRefreshToken, tr.RequestCode, tr.RequestRedirectURL, tr.RequestCodeVerifier, tr.ResponseAccessToken, tr.ResponseTokenType, tr.ResponseRefreshToken, tr.ResponseExpiry, tr.ResponseExtra, tr.CreatedAt, tr.UpdatedAt)
+	res, err := db.ExecContext(ctx, sqlstr, tr.App, tr.RequestGrantType, tr.RequestClientID, tr.RequestClientSecret, tr.RequestRefreshToken, tr.RequestCode, tr.RequestRedirectURL, tr.RequestCodeVerifier, tr.ResponseAccessToken, tr.ResponseTokenType, tr.ResponseRefreshToken, tr.ResponseExpiry, tr.ResponseExtra, tr.CreatedAt, tr.UpdatedAt)
 	if err != nil {
 		return logerror(err)
 	}
@@ -81,11 +82,11 @@ func (tr *TokenRequest) Update(ctx context.Context, db DB) error {
 	}
 	// update with primary key
 	const sqlstr = `UPDATE oauth_proxy.token_requests SET ` +
-		`app = ?, request_client_id = ?, request_client_secret = ?, request_refresh_token = ?, request_code = ?, request_redirect_url = ?, request_code_verifier = ?, response_access_token = ?, response_token_type = ?, response_refresh_token = ?, response_expiry = ?, response_extra = ?, created_at = ?, updated_at = ? ` +
+		`app = ?, request_grant_type = ?, request_client_id = ?, request_client_secret = ?, request_refresh_token = ?, request_code = ?, request_redirect_url = ?, request_code_verifier = ?, response_access_token = ?, response_token_type = ?, response_refresh_token = ?, response_expiry = ?, response_extra = ?, created_at = ?, updated_at = ? ` +
 		`WHERE id = ?`
 	// run
-	logf(sqlstr, tr.App, tr.RequestClientID, tr.RequestClientSecret, tr.RequestRefreshToken, tr.RequestCode, tr.RequestRedirectURL, tr.RequestCodeVerifier, tr.ResponseAccessToken, tr.ResponseTokenType, tr.ResponseRefreshToken, tr.ResponseExpiry, tr.ResponseExtra, tr.CreatedAt, tr.UpdatedAt, tr.ID)
-	if _, err := db.ExecContext(ctx, sqlstr, tr.App, tr.RequestClientID, tr.RequestClientSecret, tr.RequestRefreshToken, tr.RequestCode, tr.RequestRedirectURL, tr.RequestCodeVerifier, tr.ResponseAccessToken, tr.ResponseTokenType, tr.ResponseRefreshToken, tr.ResponseExpiry, tr.ResponseExtra, tr.CreatedAt, tr.UpdatedAt, tr.ID); err != nil {
+	logf(sqlstr, tr.App, tr.RequestGrantType, tr.RequestClientID, tr.RequestClientSecret, tr.RequestRefreshToken, tr.RequestCode, tr.RequestRedirectURL, tr.RequestCodeVerifier, tr.ResponseAccessToken, tr.ResponseTokenType, tr.ResponseRefreshToken, tr.ResponseExpiry, tr.ResponseExtra, tr.CreatedAt, tr.UpdatedAt, tr.ID)
+	if _, err := db.ExecContext(ctx, sqlstr, tr.App, tr.RequestGrantType, tr.RequestClientID, tr.RequestClientSecret, tr.RequestRefreshToken, tr.RequestCode, tr.RequestRedirectURL, tr.RequestCodeVerifier, tr.ResponseAccessToken, tr.ResponseTokenType, tr.ResponseRefreshToken, tr.ResponseExpiry, tr.ResponseExtra, tr.CreatedAt, tr.UpdatedAt, tr.ID); err != nil {
 		return logerror(err)
 	}
 	return nil
@@ -107,15 +108,15 @@ func (tr *TokenRequest) Upsert(ctx context.Context, db DB) error {
 	}
 	// upsert
 	const sqlstr = `INSERT INTO oauth_proxy.token_requests (` +
-		`id, app, request_client_id, request_client_secret, request_refresh_token, request_code, request_redirect_url, request_code_verifier, response_access_token, response_token_type, response_refresh_token, response_expiry, response_extra, created_at, updated_at` +
+		`id, app, request_grant_type, request_client_id, request_client_secret, request_refresh_token, request_code, request_redirect_url, request_code_verifier, response_access_token, response_token_type, response_refresh_token, response_expiry, response_extra, created_at, updated_at` +
 		`) VALUES (` +
-		`?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?` +
+		`?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?` +
 		`)` +
 		` ON DUPLICATE KEY UPDATE ` +
-		`app = VALUES(app), request_client_id = VALUES(request_client_id), request_client_secret = VALUES(request_client_secret), request_refresh_token = VALUES(request_refresh_token), request_code = VALUES(request_code), request_redirect_url = VALUES(request_redirect_url), request_code_verifier = VALUES(request_code_verifier), response_access_token = VALUES(response_access_token), response_token_type = VALUES(response_token_type), response_refresh_token = VALUES(response_refresh_token), response_expiry = VALUES(response_expiry), response_extra = VALUES(response_extra), created_at = VALUES(created_at), updated_at = VALUES(updated_at)`
+		`app = VALUES(app), request_grant_type = VALUES(request_grant_type), request_client_id = VALUES(request_client_id), request_client_secret = VALUES(request_client_secret), request_refresh_token = VALUES(request_refresh_token), request_code = VALUES(request_code), request_redirect_url = VALUES(request_redirect_url), request_code_verifier = VALUES(request_code_verifier), response_access_token = VALUES(response_access_token), response_token_type = VALUES(response_token_type), response_refresh_token = VALUES(response_refresh_token), response_expiry = VALUES(response_expiry), response_extra = VALUES(response_extra), created_at = VALUES(created_at), updated_at = VALUES(updated_at)`
 	// run
-	logf(sqlstr, tr.ID, tr.App, tr.RequestClientID, tr.RequestClientSecret, tr.RequestRefreshToken, tr.RequestCode, tr.RequestRedirectURL, tr.RequestCodeVerifier, tr.ResponseAccessToken, tr.ResponseTokenType, tr.ResponseRefreshToken, tr.ResponseExpiry, tr.ResponseExtra, tr.CreatedAt, tr.UpdatedAt)
-	if _, err := db.ExecContext(ctx, sqlstr, tr.ID, tr.App, tr.RequestClientID, tr.RequestClientSecret, tr.RequestRefreshToken, tr.RequestCode, tr.RequestRedirectURL, tr.RequestCodeVerifier, tr.ResponseAccessToken, tr.ResponseTokenType, tr.ResponseRefreshToken, tr.ResponseExpiry, tr.ResponseExtra, tr.CreatedAt, tr.UpdatedAt); err != nil {
+	logf(sqlstr, tr.ID, tr.App, tr.RequestGrantType, tr.RequestClientID, tr.RequestClientSecret, tr.RequestRefreshToken, tr.RequestCode, tr.RequestRedirectURL, tr.RequestCodeVerifier, tr.ResponseAccessToken, tr.ResponseTokenType, tr.ResponseRefreshToken, tr.ResponseExpiry, tr.ResponseExtra, tr.CreatedAt, tr.UpdatedAt)
+	if _, err := db.ExecContext(ctx, sqlstr, tr.ID, tr.App, tr.RequestGrantType, tr.RequestClientID, tr.RequestClientSecret, tr.RequestRefreshToken, tr.RequestCode, tr.RequestRedirectURL, tr.RequestCodeVerifier, tr.ResponseAccessToken, tr.ResponseTokenType, tr.ResponseRefreshToken, tr.ResponseExpiry, tr.ResponseExtra, tr.CreatedAt, tr.UpdatedAt); err != nil {
 		return logerror(err)
 	}
 	// set exists
@@ -150,7 +151,7 @@ func (tr *TokenRequest) Delete(ctx context.Context, db DB) error {
 func TokenRequestByID(ctx context.Context, db DB, id int) (*TokenRequest, error) {
 	// query
 	const sqlstr = `SELECT ` +
-		`id, app, request_client_id, request_client_secret, request_refresh_token, request_code, request_redirect_url, request_code_verifier, response_access_token, response_token_type, response_refresh_token, response_expiry, response_extra, created_at, updated_at ` +
+		`id, app, request_grant_type, request_client_id, request_client_secret, request_refresh_token, request_code, request_redirect_url, request_code_verifier, response_access_token, response_token_type, response_refresh_token, response_expiry, response_extra, created_at, updated_at ` +
 		`FROM oauth_proxy.token_requests ` +
 		`WHERE id = ?`
 	// run
@@ -158,7 +159,7 @@ func TokenRequestByID(ctx context.Context, db DB, id int) (*TokenRequest, error)
 	tr := TokenRequest{
 		_exists: true,
 	}
-	if err := db.QueryRowContext(ctx, sqlstr, id).Scan(&tr.ID, &tr.App, &tr.RequestClientID, &tr.RequestClientSecret, &tr.RequestRefreshToken, &tr.RequestCode, &tr.RequestRedirectURL, &tr.RequestCodeVerifier, &tr.ResponseAccessToken, &tr.ResponseTokenType, &tr.ResponseRefreshToken, &tr.ResponseExpiry, &tr.ResponseExtra, &tr.CreatedAt, &tr.UpdatedAt); err != nil {
+	if err := db.QueryRowContext(ctx, sqlstr, id).Scan(&tr.ID, &tr.App, &tr.RequestGrantType, &tr.RequestClientID, &tr.RequestClientSecret, &tr.RequestRefreshToken, &tr.RequestCode, &tr.RequestRedirectURL, &tr.RequestCodeVerifier, &tr.ResponseAccessToken, &tr.ResponseTokenType, &tr.ResponseRefreshToken, &tr.ResponseExpiry, &tr.ResponseExtra, &tr.CreatedAt, &tr.UpdatedAt); err != nil {
 		return nil, logerror(err)
 	}
 	return &tr, nil
