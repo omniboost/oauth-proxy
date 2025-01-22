@@ -12,6 +12,7 @@ require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/snappy v0.0.4
 	github.com/grafana/loki/v3 v3.2.1
+	github.com/joefitzgerald/passwordcredentials v0.2.0
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.4.2
 	github.com/lytics/logrus v0.0.0-20170528191427-4389a17ed024

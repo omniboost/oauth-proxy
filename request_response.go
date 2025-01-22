@@ -15,6 +15,9 @@ type TokenRequestBody struct {
 	Code         string `json:"code"`
 	RedirectURL  string `json:"redirect_uri"`
 	CodeVerifier string `json:"code_verifier,omitempty"`
+	GrantType    string
+	Username     string
+	Password     string
 
 	RawMessages
 }

@@ -72,6 +72,13 @@ func (tr *TokenRequester) Listen() {
 }
 
 func (tr *TokenRequester) CodeExchange(req TokenRequest) (*Token, error) {
+	// for this to work the provider has to support the 'Authorization Code'
+	// grant
+	provider, ok := tr.provider.(providers.AuthorizationCodeProvider)
+	if !ok {
+		return nil, errors.Errorf("Provider '%s' doesn't support authorization code grant", tr.provider.Name())
+	}
+
 	// exchange code for token and save new token in db
 	params := req.params
 	logrus.Debugf("new code exchange request received (%s)", params.Code)
@@ -86,7 +93,7 @@ func (tr *TokenRequester) CodeExchange(req TokenRequest) (*Token, error) {
 	rt := NewRoundTripperWithSave(http.DefaultTransport)
 	client.Transport = rt
 	ctx := context.WithValue(context.TODO(), oauth2.HTTPClient, client)
-	t, err := tr.provider.Exchange(ctx, params, opts...)
+	t, err := provider.Exchange(ctx, params, opts...)
 	token := &Token{Token: t, Raw: map[string]json.RawMessage{}}
 	if err != nil {
 		e := errors.Wrapf(err, "something went wrong exchanging code (%s)", params.Code)
@@ -96,7 +103,7 @@ func (tr *TokenRequester) CodeExchange(req TokenRequest) (*Token, error) {
 	// check id token if present
 	idToken, ok := t.Extra("id_token").(string)
 	if ok {
-		if v, ok := tr.provider.(interface {
+		if v, ok := provider.(interface {
 			IDTokenVerifier(providers.TokenRequestParams) *oidc.IDTokenVerifier
 		}); ok {
 			_, err := v.IDTokenVerifier(params).Verify(context.Background(), idToken)
@@ -139,11 +146,13 @@ func (tr *TokenRequester) TokenRefresh(req TokenRequest) (*Token, error) {
 	var err error
 	token := &Token{}
 	params := req.params
-	if params.RefreshToken == "" {
-		return nil, errors.New("refresh token is empty")
-	}
+	if params.GrantType == "authorization_code" {
+		if params.RefreshToken == "" {
+			return nil, errors.New("refresh token is empty")
+		}
 
-	logrus.Debugf("new token refresh request received (%s)", params.RefreshToken)
+		logrus.Debugf("new token refresh request received (%s)", params.RefreshToken)
+	}
 
 	trx, err := tr.db.Begin()
 	if err != nil {
@@ -157,19 +166,6 @@ func (tr *TokenRequester) TokenRefresh(req TokenRequest) (*Token, error) {
 			err = trx.Commit()
 		}
 	}()
-
-	// // lock db for this key
-	// key := strings.Join([]string{tr.provider.Name(), params.ClientID, params.ClientSecret, params.RefreshToken}, ":")
-	// _, err := tr.db.Exec("SELECT GET_LOCK(?, 10)", key)
-	// if err != nil {
-	// 	return token, errors.WithStack(err)
-	// }
-	// defer func() {
-	// 	_, err := tr.db.Exec("SELECT RELEASE_LOCK(?)", key)
-	// 	if err != nil {
-	// 		logrus.Debugf(err.Error())
-	// 	}
-	// }()
 
 	dbToken, err := tr.DBTokenFromDB(trx, params)
 	if errors.Cause(err) == sql.ErrNoRows {
@@ -198,7 +194,7 @@ func (tr *TokenRequester) TokenRefresh(req TokenRequest) (*Token, error) {
 	if token.Valid() {
 		// token is valid, use that
 		logrus.Debugf("token valid until: %s", token.Expiry.String())
-		logrus.Debugf("sending new token to requester (%s)", params.RefreshToken)
+		logrus.Debugf("sending existing token to requester (%s)", params.RefreshToken)
 		return token, errors.WithStack(err)
 	}
 
@@ -377,6 +373,8 @@ func (tr *TokenRequester) SaveToken(db mysql.DB, token *Token, params providers.
 
 	if dbToken.ID != 0 {
 		logrus.Debugf("found and existing token with id %d", dbToken.ID)
+	} else {
+		logrus.Debugf("New token")
 	}
 
 	// Cockpit workaround

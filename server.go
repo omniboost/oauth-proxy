@@ -500,6 +500,9 @@ func (s *Server) GetTokenRequestParamsFromFormRequest(r *http.Request) (provider
 		Code:            vals.Get("code"),
 		RedirectURL:     vals.Get("redirect_uri"),
 		CodeVerifier:    vals.Get("code_verifier"),
+		GrantType:       vals.Get("grant_type"),
+		Username:        vals.Get("username"),
+		Password:        vals.Get("password"),
 		Raw:             raw,
 		OriginalRequest: r,
 	}
@@ -546,6 +549,9 @@ func (s *Server) GetTokenRequestParamsFromJSONRequest(r *http.Request) (provider
 		Code:            reqBody.Code,
 		RedirectURL:     reqBody.RedirectURL,
 		CodeVerifier:    reqBody.CodeVerifier,
+		GrantType:       reqBody.GrantType,
+		Username:        reqBody.Username,
+		Password:        reqBody.Password,
 		Raw:             reqBody.RawMessages,
 		OriginalRequest: r,
 	}, nil

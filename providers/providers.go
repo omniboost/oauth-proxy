@@ -15,9 +15,16 @@ type Provider interface {
 	Name() string
 	Route() string
 	// OauthConfig() oauth2.Config
-	Exchange(context.Context, TokenRequestParams, ...oauth2.AuthCodeOption) (*oauth2.Token, error)
+	// Exchange(context.Context, TokenRequestParams, ...oauth2.AuthCodeOption) (*oauth2.Token, error)
 	TokenSource(context.Context, TokenRequestParams) oauth2.TokenSource
 	// NewToken(TokenRequestParams) (oauth2.Token, error)
+}
+
+type AuthorizationCodeProvider interface {
+	Name() string
+	Route() string
+	Exchange(context.Context, TokenRequestParams, ...oauth2.AuthCodeOption) (*oauth2.Token, error)
+	TokenSource(context.Context, TokenRequestParams) oauth2.TokenSource
 }
 
 type RevokeProvider interface {
@@ -140,6 +147,8 @@ func Load() Providers {
 			WithName("bookingexperts"),
 		NewMicrosoftOnline().
 			WithName("microsoftonline"),
+		NewShiji().
+			WithName("shiji"),
 	}
 }
 
@@ -150,6 +159,9 @@ type TokenRequestParams struct {
 	Code         string
 	RedirectURL  string
 	CodeVerifier string
+	GrantType    string
+	Username     string
+	Password     string
 
 	Raw             map[string]json.RawMessage
 	OriginalRequest *http.Request
