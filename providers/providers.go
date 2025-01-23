@@ -148,7 +148,11 @@ func Load() Providers {
 		NewMicrosoftOnline().
 			WithName("microsoftonline"),
 		NewShiji().
-			WithName("shiji"),
+			WithName("shiji/{region}").
+			WithTokenURL("https://{{.Region}}.api.ep.shiji.world/connect/token"),
+		NewShiji().
+			WithName("shiji.dev/{region}").
+			WithTokenURL("https://{{.Region}}.api.uat.development.abovecloud.io/connect/token"),
 	}
 }
 

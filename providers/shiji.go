@@ -1,7 +1,9 @@
 package providers
 
 import (
+	"bytes"
 	"context"
+	"text/template"
 
 	"github.com/joefitzgerald/passwordcredentials"
 	"golang.org/x/oauth2"
@@ -83,12 +85,23 @@ func (v Shiji) Exchange(ctx context.Context, params TokenRequestParams, opts ...
 }
 
 func (v Shiji) TokenSource(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
+	region := params.OriginalRequest.PathValue("region")
+	if region == "" {
+		region = "eu1"
+	}
+
+	buf := bytes.NewBuffer([]byte{})
+	tmpl, _ := template.New("shiji_token_url").Parse(v.tokenURL)
+	tmpl.Execute(buf, map[string]any{"Region": region})
+	tokenURL := buf.String()
+
 	if params.RefreshToken == "" {
 		config := v.passwordOauthConfig()
 		config.ClientID = params.ClientID
 		config.ClientSecret = params.ClientSecret
 		config.Username = params.Username
 		config.Password = params.Password
+		config.Endpoint.TokenURL = tokenURL
 		return config.TokenSource(ctx)
 	}
 
@@ -96,6 +109,7 @@ func (v Shiji) TokenSource(ctx context.Context, params TokenRequestParams) oauth
 	config.ClientID = params.ClientID
 	config.ClientSecret = params.ClientSecret
 	config.RedirectURL = params.RedirectURL
+	config.Endpoint.TokenURL = tokenURL
 	token := &oauth2.Token{
 		RefreshToken: params.RefreshToken,
 	}
