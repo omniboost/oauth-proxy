@@ -40,7 +40,7 @@ func (v Shiji) Route() string {
 	return "/" + v.name + "/oauth2/token"
 }
 
-func (v Shiji) oauthConfig() *passwordcredentials.Config {
+func (v Shiji) passwordOauthConfig() *passwordcredentials.Config {
 	tokenURL := "https://eu1.api.uat.development.abovecloud.io/connect/token"
 	if v.tokenURL != "" {
 		tokenURL = v.tokenURL
@@ -57,11 +57,47 @@ func (v Shiji) oauthConfig() *passwordcredentials.Config {
 	}
 }
 
-func (v Shiji) TokenSource(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
-	config := v.oauthConfig()
+func (v Shiji) authorizationCodeOauthConfig() *oauth2.Config {
+	tokenURL := "https://eu1.api.uat.development.abovecloud.io/connect/token"
+	if v.tokenURL != "" {
+		tokenURL = v.tokenURL
+	}
+
+	return &oauth2.Config{
+		ClientID:     "",
+		ClientSecret: "",
+		Scopes:       []string{},
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  "",
+			TokenURL: tokenURL,
+		},
+	}
+}
+
+func (v Shiji) Exchange(ctx context.Context, params TokenRequestParams, opts ...oauth2.AuthCodeOption) (*oauth2.Token, error) {
+	config := v.authorizationCodeOauthConfig()
 	config.ClientID = params.ClientID
 	config.ClientSecret = params.ClientSecret
-	config.Username = params.Username
-	config.Password = params.Password
-	return config.TokenSource(ctx)
+	config.RedirectURL = params.RedirectURL
+	return config.Exchange(ctx, params.Code, opts...)
+}
+
+func (v Shiji) TokenSource(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
+	if params.RefreshToken == "" {
+		config := v.passwordOauthConfig()
+		config.ClientID = params.ClientID
+		config.ClientSecret = params.ClientSecret
+		config.Username = params.Username
+		config.Password = params.Password
+		return config.TokenSource(ctx)
+	}
+
+	config := v.authorizationCodeOauthConfig()
+	config.ClientID = params.ClientID
+	config.ClientSecret = params.ClientSecret
+	config.RedirectURL = params.RedirectURL
+	token := &oauth2.Token{
+		RefreshToken: params.RefreshToken,
+	}
+	return config.TokenSource(ctx, token)
 }

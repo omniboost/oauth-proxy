@@ -49,7 +49,7 @@ func TestTokenRequester(t *testing.T) {
 		return
 	}
 
-	_, err = tr.TokenFromDB(dbh, params)
+	_, err = tr.AuthorizationTokenFromDB(dbh, params)
 	if err == nil {
 		t.Error("expected error, got nil")
 		return
@@ -59,13 +59,13 @@ func TestTokenRequester(t *testing.T) {
 		return
 	}
 
-	dbToken, err := tr.SaveToken(dbh, &proxyToken, params)
+	dbToken, err := tr.SaveAuthorizationToken(dbh, &proxyToken, params)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	dbToken2, err := tr.DBTokenFromDB(dbh, params)
+	dbToken2, err := tr.AuthorizationTokenFromDB(dbh, params)
 	if err != nil {
 		t.Error(err)
 		return
@@ -211,7 +211,7 @@ func TestTokenExpired(t *testing.T) {
 		Token: token,
 		Raw:   map[string]json.RawMessage{},
 	}
-	_, err := tr.SaveToken(dbh, &proxyToken, params)
+	_, err := tr.SaveAuthorizationToken(dbh, &proxyToken, params)
 	if err != nil {
 		t.Error(err)
 		return
@@ -256,7 +256,7 @@ func TestTokenRefreshParallel(t *testing.T) {
 		Token: token,
 		Raw:   map[string]json.RawMessage{},
 	}
-	_, err = tr.SaveToken(dbh, &proxyToken, params)
+	_, err = tr.SaveAuthorizationToken(dbh, &proxyToken, params)
 	if err != nil {
 		t.Error(err)
 		return
