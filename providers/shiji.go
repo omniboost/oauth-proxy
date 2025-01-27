@@ -85,33 +85,65 @@ func (v Shiji) Exchange(ctx context.Context, params TokenRequestParams, opts ...
 }
 
 func (v Shiji) TokenSource(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
-	region := params.OriginalRequest.PathValue("region")
+	return ShijiTokenSource{
+		provider: v,
+		ctx:      ctx,
+		params:   params,
+	}
+}
+
+type ShijiTokenSource struct {
+	provider Shiji
+	ctx      context.Context
+	params   TokenRequestParams
+}
+
+func (v ShijiTokenSource) Token() (*oauth2.Token, error) {
+	region := v.params.OriginalRequest.PathValue("region")
 	if region == "" {
 		region = "eu1"
 	}
 
 	buf := bytes.NewBuffer([]byte{})
-	tmpl, _ := template.New("shiji_token_url").Parse(v.tokenURL)
+	tmpl, _ := template.New("shiji_token_url").Parse(v.provider.tokenURL)
 	tmpl.Execute(buf, map[string]any{"Region": region})
 	tokenURL := buf.String()
 
-	if params.RefreshToken == "" {
-		config := v.passwordOauthConfig()
-		config.ClientID = params.ClientID
-		config.ClientSecret = params.ClientSecret
-		config.Username = params.Username
-		config.Password = params.Password
+	// We have a prior refresh token: get new access token with the refresh
+	// token using the authorization_code grant_type flow
+	if v.params.RefreshToken != "" {
+		config := v.provider.authorizationCodeOauthConfig()
+		config.ClientID = v.params.ClientID
+		config.ClientSecret = v.params.ClientSecret
+		config.RedirectURL = v.params.RedirectURL
 		config.Endpoint.TokenURL = tokenURL
-		return config.TokenSource(ctx)
+		token := &oauth2.Token{
+			RefreshToken: v.params.RefreshToken,
+		}
+
+		ts := config.TokenSource(v.ctx, token)
+		token, err := ts.Token()
+
+		// call is done succesfuly: return the retrieved token
+		if err == nil {
+			return token, nil
+		}
+
+		// invalid response, we're going to use the initial
+		// password oauth call again
 	}
 
-	config := v.authorizationCodeOauthConfig()
-	config.ClientID = params.ClientID
-	config.ClientSecret = params.ClientSecret
-	config.RedirectURL = params.RedirectURL
+	// have no refresh token, or we get an error on the authorization code flow:
+	// try the password grant_type flow
+	config := v.provider.passwordOauthConfig()
+	config.ClientID = v.params.ClientID
+	config.ClientSecret = v.params.ClientSecret
+	config.Username = v.params.Username
+	config.Password = v.params.Password
 	config.Endpoint.TokenURL = tokenURL
-	token := &oauth2.Token{
-		RefreshToken: params.RefreshToken,
-	}
-	return config.TokenSource(ctx, token)
+
+	// Initialize tokensource & get a new token
+	ts := config.TokenSource(v.ctx)
+	token, err := ts.Token()
+	return token, err
 }
