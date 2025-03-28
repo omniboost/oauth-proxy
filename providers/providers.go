@@ -153,6 +153,9 @@ func Load() Providers {
 		NewShiji().
 			WithName("shiji.dev/{region}").
 			WithTokenURL("https://{{.Region}}.api.uat.development.abovecloud.io/connect/token"),
+		NewHIA().
+			WithName("hia/{subdomain}").
+			WithTokenURL("https://{{.Subdomain}}.hotelinvestorapps.com/identity/connect/token"),
 	}
 }
 
