@@ -158,7 +158,7 @@ func (tr *TokenRequester) TokenRefreshAuthorizationCode(req TokenRequest) (*Toke
 	}
 	defer func() {
 		if err != nil {
-			logrus.Debugf(err.Error())
+			logrus.Debug(err.Error())
 			trx.Rollback()
 		} else {
 			err = trx.Commit()
@@ -242,7 +242,7 @@ func (tr *TokenRequester) TokenRefreshPassword(req TokenRequest) (*Token, error)
 	}
 	defer func() {
 		if err != nil {
-			logrus.Debugf(err.Error())
+			logrus.Debug(err.Error())
 			trx.Rollback()
 		} else {
 			err = trx.Commit()
@@ -311,7 +311,7 @@ func (tr *TokenRequester) TokenRefreshClientCredentials(req TokenRequest) (*Toke
 	}
 	defer func() {
 		if err != nil {
-			logrus.Debugf(err.Error())
+			logrus.Debug(err.Error())
 			trx.Rollback()
 		} else {
 			err = trx.Commit()
