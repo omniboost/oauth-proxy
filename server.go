@@ -446,12 +446,26 @@ func (s *Server) GetTokenRequestParamsFromRequest(r *http.Request) (providers.To
 		}
 	}
 
+	params := providers.TokenRequestParams{}
 	switch content {
 	case "application/x-www-form-urlencoded", "text/plain", "":
-		return s.GetTokenRequestParamsFromFormRequest(r)
+		params, err = s.GetTokenRequestParamsFromFormRequest(r)
+		if err != nil {
+			return params, errors.WithStack(err)
+		}
 	default:
-		return s.GetTokenRequestParamsFromJSONRequest(r)
+		params, err = s.GetTokenRequestParamsFromJSONRequest(r)
+		if err != nil {
+			return params, errors.WithStack(err)
+		}
 	}
+
+	// in some cases the grant type can also be set in the query parameters
+	if r.URL.Query().Get("grant_type") != "" {
+		params.GrantType = r.URL.Query().Get("grant_type")
+	}
+
+	return params, nil
 }
 
 func (s *Server) GetTokenRevokeParamsFromRequest(r *http.Request) (TokenRevokeParams, error) {
