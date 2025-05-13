@@ -156,6 +156,8 @@ func Load() Providers {
 		NewHIA().
 			WithName("hia/{subdomain}").
 			WithTokenURL("https://{{.Subdomain}}.hotelinvestorapps.com/identity/connect/token"),
+		NewOpenTable().
+			WithName("opentable"),
 	}
 }
 
