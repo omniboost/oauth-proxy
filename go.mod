@@ -24,7 +24,7 @@ require (
 	github.com/spf13/viper v1.19.0
 	github.com/xo/dburl v0.23.2
 	golang.org/x/exp v0.0.0-20240325151524-a685a6edb6d8
-	golang.org/x/oauth2 v0.24.0
+	golang.org/x/oauth2 v0.27.0
 	modernc.org/sqlite v1.33.1
 )
 
