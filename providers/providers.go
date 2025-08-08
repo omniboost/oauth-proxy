@@ -164,6 +164,8 @@ func Load() Providers {
 			WithTokenURL("https://{{.Subdomain}}.hotelinvestorapps.com/identity/connect/token"),
 		NewOpenTable().
 			WithName("opentable"),
+		NewMYOB().
+			WithName("myob"),
 	}
 }
 
