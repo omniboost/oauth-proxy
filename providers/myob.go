@@ -31,8 +31,7 @@ func (m MYOB) Name() string {
 }
 
 func (m MYOB) Route() string {
-	// "/exactonline.nl/api/oauth2/token"
-	return "/" + m.name + "/api/oauth2/token"
+	return "/" + m.name + "/oauth2/token"
 }
 
 func (m MYOB) oauthConfig() *oauth2.Config {
