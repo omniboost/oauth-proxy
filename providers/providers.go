@@ -153,6 +153,8 @@ func Load() Providers {
 			WithName("bookingexperts"),
 		NewMicrosoftOnline().
 			WithName("microsoftonline"),
+		NewMicrosoftOnline().
+			WithName("microsoftonline/{tenant}"),
 		NewShiji().
 			WithName("shiji/{region}").
 			WithTokenURL("https://{{.Region}}.api.ep.shiji.world/connect/token"),

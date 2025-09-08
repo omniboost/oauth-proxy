@@ -1,7 +1,9 @@
 package providers
 
 import (
+	"bytes"
 	"context"
+	"text/template"
 
 	"golang.org/x/oauth2"
 )
@@ -35,8 +37,8 @@ func (f MicrosoftOnline) oauthConfig() *oauth2.Config {
 		ClientSecret: "",
 		Scopes:       []string{},
 		Endpoint: oauth2.Endpoint{
-			AuthURL:   "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
-			TokenURL:  "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+			AuthURL:   "https://login.microsoftonline.com/{{.Tenant}}/oauth2/v2.0/authorize",
+			TokenURL:  "https://login.microsoftonline.com/{{.Tenant}}/oauth2/v2.0/token",
 			AuthStyle: oauth2.AuthStyleInHeader,
 		},
 	}
@@ -47,6 +49,17 @@ func (f MicrosoftOnline) Exchange(ctx context.Context, params TokenRequestParams
 	config.ClientID = params.ClientID
 	config.ClientSecret = params.ClientSecret
 	config.RedirectURL = params.RedirectURL
+
+	tenant := params.OriginalRequest.PathValue("tenant")
+	if tenant == "" {
+		tenant = "common"
+	}
+
+	buf := bytes.NewBuffer([]byte{})
+	tmpl, _ := template.New("microsoft_token_url").Parse(config.Endpoint.TokenURL)
+	tmpl.Execute(buf, map[string]any{"Tenant": tenant})
+	config.Endpoint.TokenURL = buf.String()
+
 	return config.Exchange(ctx, params.Code, opts...)
 }
 
@@ -58,5 +71,15 @@ func (f MicrosoftOnline) TokenSource(ctx context.Context, params TokenRequestPar
 	token := &oauth2.Token{
 		RefreshToken: params.RefreshToken,
 	}
+
+	tenant := params.OriginalRequest.PathValue("tenant")
+	if tenant == "" {
+		tenant = "common"
+	}
+
+	buf := bytes.NewBuffer([]byte{})
+	tmpl, _ := template.New("microsoft_token_url").Parse(config.Endpoint.TokenURL)
+	tmpl.Execute(buf, map[string]any{"Tenant": tenant})
+	config.Endpoint.TokenURL = buf.String()
 	return config.TokenSource(ctx, token)
 }
