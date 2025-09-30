@@ -51,7 +51,7 @@ func (m Procountor) Exchange(ctx context.Context, params TokenRequestParams, opt
 	return config.Exchange(ctx, params.Code, opts...)
 }
 
-func (m Procountor) TokenSource(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
+func (m Procountor) TokenSourceAuthorizationCode(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
 	config := m.oauthConfig()
 	config.ClientID = params.ClientID
 	config.ClientSecret = params.ClientSecret

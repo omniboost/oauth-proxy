@@ -54,7 +54,7 @@ func (v OpenTable) oauthConfig() *clientcredentials.Config {
 	}
 }
 
-func (v OpenTable) TokenSource(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
+func (v OpenTable) TokenSourceClientCredentials(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
 	config := v.oauthConfig()
 	config.ClientID = params.ClientID
 	config.ClientSecret = params.ClientSecret

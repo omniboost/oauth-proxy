@@ -70,7 +70,7 @@ func (v Chronogolf) Exchange(ctx context.Context, params TokenRequestParams, opt
 	return config.Exchange(ctx, params.Code, opts...)
 }
 
-func (v Chronogolf) TokenSource(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
+func (v Chronogolf) TokenSourceAuthorizationCode(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
 	config := v.oauthConfig()
 	config.ClientID = params.ClientID
 	config.ClientSecret = params.ClientSecret

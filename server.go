@@ -89,6 +89,16 @@ func (s *Server) SetProviders(pp providers.Providers) {
 	s.tokenRequesters = map[string]*TokenRequester{}
 	s.tokenRevokers = map[string]*TokenRevoker{}
 	for _, provider := range pp {
+		_, isAuthorizationCodeProvider := provider.(providers.AuthorizationCodeProvider)
+		_, isPasswordProvider := provider.(providers.PasswordProvider)
+		_, isClientCredentialsProvider := provider.(providers.ClientCredentialsProvider)
+
+		// if no token requester is implemented, just log a warning
+		if !isAuthorizationCodeProvider && !isPasswordProvider && !isClientCredentialsProvider {
+			logrus.Warnf("Provider %s doesn't implement a token requester", provider.Name())
+		}
+
+		// register the thing
 		tr := NewTokenRequester(s.db, provider)
 		s.tokenRequesters[provider.Name()] = tr
 		tr.Start()

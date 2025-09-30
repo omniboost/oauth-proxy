@@ -70,7 +70,7 @@ func (v BookingExperts) Exchange(ctx context.Context, params TokenRequestParams,
 	return config.Exchange(ctx, params.Code, opts...)
 }
 
-func (v BookingExperts) TokenSource(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
+func (v BookingExperts) TokenSourceAuthorizationCode(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
 	config := v.oauthConfig()
 	config.ClientID = params.ClientID
 	config.ClientSecret = params.ClientSecret

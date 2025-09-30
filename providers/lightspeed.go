@@ -55,7 +55,7 @@ func (l Lightspeed) Exchange(ctx context.Context, params TokenRequestParams, opt
 	return config.Exchange(ctx, params.Code, opts...)
 }
 
-func (l Lightspeed) TokenSource(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
+func (l Lightspeed) TokenSourceAuthorizationCode(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
 	config := l.oauthConfig()
 	config.ClientID = params.ClientID
 	config.ClientSecret = params.ClientSecret

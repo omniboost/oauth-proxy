@@ -50,7 +50,7 @@ func (f Fortnox) Exchange(ctx context.Context, params TokenRequestParams, opts .
 	return config.Exchange(ctx, params.Code, opts...)
 }
 
-func (f Fortnox) TokenSource(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
+func (f Fortnox) TokenSourceAuthorizationCode(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
 	config := f.oauthConfig()
 	config.ClientID = params.ClientID
 	config.ClientSecret = params.ClientSecret

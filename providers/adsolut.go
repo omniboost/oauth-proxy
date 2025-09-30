@@ -70,7 +70,7 @@ func (v Adsolut) Exchange(ctx context.Context, params TokenRequestParams, opts .
 	return config.Exchange(ctx, params.Code, opts...)
 }
 
-func (v Adsolut) TokenSource(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
+func (v Adsolut) TokenSourceAuthorizationCode(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
 	config := v.oauthConfig()
 	config.ClientID = params.ClientID
 	config.ClientSecret = params.ClientSecret

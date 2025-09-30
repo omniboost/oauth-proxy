@@ -70,7 +70,7 @@ func (v VismaOnline) Exchange(ctx context.Context, params TokenRequestParams, op
 	return config.Exchange(ctx, params.Code, opts...)
 }
 
-func (v VismaOnline) TokenSource(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
+func (v VismaOnline) TokenSourceAuthorizationCode(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
 	config := v.oauthConfig()
 	config.ClientID = params.ClientID
 	config.ClientSecret = params.ClientSecret

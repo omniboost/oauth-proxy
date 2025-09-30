@@ -67,7 +67,7 @@ func (ns NetSuite) Exchange(ctx context.Context, params TokenRequestParams, opts
 	return config.Exchange(ctx, params.Code, opts...)
 }
 
-func (ns NetSuite) TokenSource(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
+func (ns NetSuite) TokenSourceAuthorizationCode(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
 	company := ""
 	_ = json.Unmarshal(params.Raw["company"], &company)
 

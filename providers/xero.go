@@ -50,7 +50,7 @@ func (x Xero) Exchange(ctx context.Context, params TokenRequestParams, opts ...o
 	return config.Exchange(ctx, params.Code, opts...)
 }
 
-func (x Xero) TokenSource(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
+func (x Xero) TokenSourceAuthorizationCode(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
 	config := x.oauthConfig()
 	config.ClientID = params.ClientID
 	config.ClientSecret = params.ClientSecret

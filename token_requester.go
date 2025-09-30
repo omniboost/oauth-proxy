@@ -387,14 +387,73 @@ func (tr *TokenRequester) NewTokenRequest(params providers.TokenRequestParams) T
 	}
 }
 
-func (tr *TokenRequester) FetchNewToken(params providers.TokenRequestParams) (*oauth2.Token, error) {
+func (tr *TokenRequester) FetchNewTokenAuthorizationCode(params providers.TokenRequestParams) (*oauth2.Token, error) {
+	prov, ok := tr.provider.(providers.AuthorizationCodeProvider)
+	if !ok {
+		return nil, errors.Errorf("Provider '%s' doesn't support authorization code grant", tr.provider.Name())
+	}
+
 	// retrieve new token
 	logrus.Debugf("requesting new token with the following params :%+v", params)
-	token, err := tr.provider.TokenSource(context.Background(), params).Token()
+	token, err := prov.TokenSourceAuthorizationCode(context.Background(), params).Token()
 	if err != nil {
 		return token, errors.WithStack(err)
 	}
 
+	// verify id_token
+	err = tr.VerifyIDToken(token, params)
+	if err != nil {
+		return token, errors.WithStack(err)
+	}
+
+	return token, nil
+}
+
+func (tr *TokenRequester) FetchNewTokenPassword(params providers.TokenRequestParams) (*oauth2.Token, error) {
+	prov, ok := tr.provider.(providers.PasswordProvider)
+	if !ok {
+		return nil, errors.Errorf("Provider '%s' doesn't support password grant", tr.provider.Name())
+	}
+
+	// retrieve new token
+	logrus.Debugf("requesting new token with the following params :%+v", params)
+	token, err := prov.TokenSourcePassword(context.Background(), params).Token()
+	if err != nil {
+		return token, errors.WithStack(err)
+	}
+
+	// verify id_token
+	err = tr.VerifyIDToken(token, params)
+	if err != nil {
+		return token, errors.WithStack(err)
+	}
+
+	return token, nil
+}
+
+func (tr *TokenRequester) FetchNewTokenClientCredentials(params providers.TokenRequestParams) (*oauth2.Token, error) {
+	prov, ok := tr.provider.(providers.ClientCredentialsProvider)
+	if !ok {
+		return nil, errors.Errorf("Provider '%s' doesn't support client credentials grant", tr.provider.Name())
+	}
+
+	// retrieve new token
+	logrus.Debugf("requesting new token with the following params :%+v", params)
+	token, err := prov.TokenSourceClientCredentials(context.Background(), params).Token()
+	if err != nil {
+		return token, errors.WithStack(err)
+	}
+
+	// verify id_token
+	err = tr.VerifyIDToken(token, params)
+	if err != nil {
+		return token, errors.WithStack(err)
+	}
+
+	return token, nil
+}
+
+func (tr *TokenRequester) VerifyIDToken(token *oauth2.Token, params providers.TokenRequestParams) error {
 	// check id token if present
 	idToken, ok := token.Extra("id_token").(string)
 	if ok {
@@ -406,13 +465,13 @@ func (tr *TokenRequester) FetchNewToken(params providers.TokenRequestParams) (*o
 				if strings.Contains(err.Error(), "failed to decode keys") {
 					// do nothing
 				} else {
-					return token, errors.WithStack(err)
+					return errors.WithStack(err)
 				}
 			}
 		}
 	}
 
-	return token, nil
+	return nil
 }
 
 func (tr *TokenRequester) AuthorizationTokenFromDB(db mysql.DB, params providers.TokenRequestParams) (*mysql.OauthToken, error) {
@@ -671,7 +730,7 @@ func (tr *TokenRequester) fetchAndSaveNewAuthorizationToken(db mysql.DB, params 
 		return &Token{}, errors.WithStack(err)
 	}
 
-	t, err := tr.FetchNewToken(params)
+	t, err := tr.FetchNewTokenAuthorizationCode(params)
 	token := &Token{Token: t, Raw: map[string]json.RawMessage{}}
 	if err != nil {
 		e := errors.Wrapf(err, "something went wrong fetching new token (%s): %s", params.RefreshToken, err)
@@ -699,7 +758,7 @@ func (tr *TokenRequester) fetchAndSaveNewPasswordToken(db mysql.DB, params provi
 		return &Token{}, errors.WithStack(err)
 	}
 
-	t, err := tr.FetchNewToken(params)
+	t, err := tr.FetchNewTokenPassword(params)
 	token := &Token{Token: t, Raw: map[string]json.RawMessage{}}
 	if err != nil {
 		e := errors.Wrapf(err, "something went wrong fetching new token (%s): %s", params.Username, err)
@@ -727,7 +786,7 @@ func (tr *TokenRequester) fetchAndSaveNewClientCredentialsToken(db mysql.DB, par
 		return &Token{}, errors.WithStack(err)
 	}
 
-	t, err := tr.FetchNewToken(params)
+	t, err := tr.FetchNewTokenClientCredentials(params)
 	token := &Token{Token: t, Raw: map[string]json.RawMessage{}}
 	if err != nil {
 		e := errors.Wrapf(err, "something went wrong fetching new token: %s", err)

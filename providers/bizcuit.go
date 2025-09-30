@@ -64,7 +64,7 @@ func (p Bizcuit) Exchange(ctx context.Context, params TokenRequestParams, opts .
 	return config.Exchange(ctx, params.Code, opts...)
 }
 
-func (p Bizcuit) TokenSource(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
+func (p Bizcuit) TokenSourceAuthorizationCode(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
 	config := p.oauthConfig()
 	config.ClientID = params.ClientID
 	config.ClientSecret = params.ClientSecret

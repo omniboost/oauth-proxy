@@ -55,7 +55,7 @@ func (m MYOB) Exchange(ctx context.Context, params TokenRequestParams, opts ...o
 	return config.Exchange(ctx, params.Code, opts...)
 }
 
-func (m MYOB) TokenSource(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
+func (m MYOB) TokenSourceAuthorizationCode(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
 	config := m.oauthConfig()
 	config.ClientID = params.ClientID
 	config.ClientSecret = params.ClientSecret

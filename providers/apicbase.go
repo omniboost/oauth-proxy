@@ -50,7 +50,7 @@ func (ab Apicbase) Exchange(ctx context.Context, params TokenRequestParams, opts
 	return config.Exchange(ctx, params.Code, opts...)
 }
 
-func (ab Apicbase) TokenSource(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
+func (ab Apicbase) TokenSourceAuthorizationCode(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
 	config := ab.oauthConfig()
 	config.ClientID = params.ClientID
 	config.ClientSecret = params.ClientSecret

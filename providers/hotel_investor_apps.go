@@ -84,7 +84,7 @@ func (v HIA) Exchange(ctx context.Context, params TokenRequestParams, opts ...oa
 	return config.Exchange(ctx, params.Code, opts...)
 }
 
-func (v HIA) TokenSource(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
+func (v HIA) TokenSourceAuthorizationCode(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
 	return HIATokenSource{
 		provider: v,
 		ctx:      ctx,

@@ -51,7 +51,7 @@ func (m Cloudbeds) Exchange(ctx context.Context, params TokenRequestParams, opts
 	return config.Exchange(ctx, params.Code, opts...)
 }
 
-func (m Cloudbeds) TokenSource(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
+func (m Cloudbeds) TokenSourceAuthorizationCode(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
 	config := m.oauthConfig()
 	config.ClientID = params.ClientID
 	config.ClientSecret = params.ClientSecret

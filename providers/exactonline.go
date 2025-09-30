@@ -56,7 +56,7 @@ func (eo ExactOnline) Exchange(ctx context.Context, params TokenRequestParams, o
 	return config.Exchange(ctx, params.Code, opts...)
 }
 
-func (eo ExactOnline) TokenSource(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
+func (eo ExactOnline) TokenSourceAuthorizationCode(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
 	config := eo.oauthConfig()
 	config.ClientID = params.ClientID
 	config.ClientSecret = params.ClientSecret

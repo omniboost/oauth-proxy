@@ -53,7 +53,7 @@ func (m Cockpit) Exchange(ctx context.Context, params TokenRequestParams, opts .
 	return config.Exchange(ctx, params.Code, opts...)
 }
 
-func (m Cockpit) TokenSource(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
+func (m Cockpit) TokenSourceAuthorizationCode(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
 	config := m.oauthConfig()
 	config.ClientID = params.ClientID
 	config.ClientSecret = params.ClientSecret

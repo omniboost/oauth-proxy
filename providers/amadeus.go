@@ -50,7 +50,7 @@ func (am Amadeus) Exchange(ctx context.Context, params TokenRequestParams, opts 
 	return config.Exchange(ctx, params.Code, opts...)
 }
 
-func (am Amadeus) TokenSource(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
+func (am Amadeus) TokenSourceAuthorizationCode(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
 	config := am.oauthConfig()
 	config.ClientID = params.ClientID
 	config.ClientSecret = params.ClientSecret

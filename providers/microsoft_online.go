@@ -63,7 +63,7 @@ func (f MicrosoftOnline) Exchange(ctx context.Context, params TokenRequestParams
 	return config.Exchange(ctx, params.Code, opts...)
 }
 
-func (f MicrosoftOnline) TokenSource(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
+func (f MicrosoftOnline) TokenSourceAuthorizationCode(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
 	config := f.oauthConfig()
 	config.ClientID = params.ClientID
 	config.ClientSecret = params.ClientSecret

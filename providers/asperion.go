@@ -49,7 +49,7 @@ func (f Asperion) Exchange(ctx context.Context, params TokenRequestParams, opts 
 	return config.Exchange(ctx, params.Code, opts...)
 }
 
-func (f Asperion) TokenSource(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
+func (f Asperion) TokenSourceAuthorizationCode(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
 	config := f.oauthConfig()
 	config.ClientID = params.ClientID
 	config.ClientSecret = params.ClientSecret

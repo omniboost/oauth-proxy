@@ -50,7 +50,7 @@ func (qb QuickBooks) Exchange(ctx context.Context, params TokenRequestParams, op
 	return config.Exchange(ctx, params.Code, opts...)
 }
 
-func (qb QuickBooks) TokenSource(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
+func (qb QuickBooks) TokenSourceAuthorizationCode(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
 	config := qb.oauthConfig()
 	config.ClientID = params.ClientID
 	config.ClientSecret = params.ClientSecret

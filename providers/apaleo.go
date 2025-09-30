@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/clientcredentials"
 )
 
 type Apaleo struct {
@@ -27,7 +28,7 @@ func (m Apaleo) Route() string {
 	return "/" + m.name + "/oauth/token"
 }
 
-func (m Apaleo) oauthConfig() *oauth2.Config {
+func (m Apaleo) oauthConfigAuthorizationCode() *oauth2.Config {
 	return &oauth2.Config{
 		RedirectURL:  "",
 		ClientID:     "",
@@ -41,15 +42,15 @@ func (m Apaleo) oauthConfig() *oauth2.Config {
 }
 
 func (m Apaleo) Exchange(ctx context.Context, params TokenRequestParams, opts ...oauth2.AuthCodeOption) (*oauth2.Token, error) {
-	config := m.oauthConfig()
+	config := m.oauthConfigAuthorizationCode()
 	config.ClientID = params.ClientID
 	config.ClientSecret = params.ClientSecret
 	config.RedirectURL = params.RedirectURL
 	return config.Exchange(ctx, params.Code, opts...)
 }
 
-func (m Apaleo) TokenSource(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
-	config := m.oauthConfig()
+func (m Apaleo) TokenSourceAuthorizationCode(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
+	config := m.oauthConfigAuthorizationCode()
 	config.ClientID = params.ClientID
 	config.ClientSecret = params.ClientSecret
 	config.RedirectURL = params.RedirectURL
@@ -57,4 +58,20 @@ func (m Apaleo) TokenSource(ctx context.Context, params TokenRequestParams) oaut
 		RefreshToken: params.RefreshToken,
 	}
 	return config.TokenSource(ctx, token)
+}
+
+func (m Apaleo) oauthConfigClientCredentials() *clientcredentials.Config {
+	return &clientcredentials.Config{
+		ClientID:     "",
+		ClientSecret: "",
+		Scopes:       []string{},
+		TokenURL:     "https://identity.apaleo.com/connect/token",
+	}
+}
+
+func (m Apaleo) TokenSourceClientCredentials(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
+	config := m.oauthConfigClientCredentials()
+	config.ClientID = params.ClientID
+	config.ClientSecret = params.ClientSecret
+	return config.TokenSource(ctx)
 }
