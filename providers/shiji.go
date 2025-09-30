@@ -84,7 +84,7 @@ func (v Shiji) Exchange(ctx context.Context, params TokenRequestParams, opts ...
 	return config.Exchange(ctx, params.Code, opts...)
 }
 
-func (v Shiji) TokenSourceAuthorizationCode(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
+func (v Shiji) TokenSourcePassword(ctx context.Context, params TokenRequestParams) oauth2.TokenSource {
 	return ShijiTokenSource{
 		provider: v,
 		ctx:      ctx,
