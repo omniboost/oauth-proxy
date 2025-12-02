@@ -403,6 +403,9 @@ func (s *Server) NewProviderRevokeHandler(provider providers.RevokeProvider) htt
 			return
 		}
 
+		// everything went well, make sure to set status code 200
+		w.WriteHeader(http.StatusOK)
+
 		logrus.Debug("Server outgoing response (without headers for now):")
 		for _, s := range strings.Split(buf.String(), "\r\n") {
 			logrus.Debug(s)
