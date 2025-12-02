@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/awslabs/aws-lambda-go-api-proxy/core"
 	"github.com/awslabs/aws-lambda-go-api-proxy/httpadapter"
 	"github.com/getsentry/sentry-go"
 	_ "github.com/go-sql-driver/mysql"
@@ -256,6 +257,17 @@ func (s *Server) NewProviderTokenHandler(provider providers.Provider) http.Handl
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 
+		// Get the Lambda runtime context (aws-lambda-go/lambdacontext)
+		if lc, ok := core.GetRuntimeContextFromContextV2(r.Context()); ok && lc != nil {
+			log.Printf("awsRequestID=%s, invokedFunctionArn=%s", lc.AwsRequestID, lc.InvokedFunctionArn)
+		}
+
+		// Optionally: API Gateway context, if you need it
+		if gwCtx, ok := core.GetAPIGatewayV2ContextFromContext(r.Context()); ok {
+			log.Printf("gatewayRequestID=%s, apiId=%s, stage=%s, sourceIp=%s",
+				gwCtx.RequestID, gwCtx.APIID, gwCtx.Stage, gwCtx.HTTP.SourceIP)
+		}
+
 		b, err := httputil.DumpRequest(r, true)
 		logrus.Debug("Server incoming request:")
 		for _, s := range strings.Split(string(b), "\r\n") {
@@ -338,6 +350,17 @@ func (s *Server) NewProviderRevokeHandler(provider providers.RevokeProvider) htt
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
+
+		// Get the Lambda runtime context (aws-lambda-go/lambdacontext)
+		if lc, ok := core.GetRuntimeContextFromContextV2(r.Context()); ok && lc != nil {
+			log.Printf("awsRequestID=%s, invokedFunctionArn=%s", lc.AwsRequestID, lc.InvokedFunctionArn)
+		}
+
+		// Optionally: API Gateway context, if you need it
+		if gwCtx, ok := core.GetAPIGatewayV2ContextFromContext(r.Context()); ok {
+			log.Printf("gatewayRequestID=%s, apiId=%s, stage=%s, sourceIp=%s",
+				gwCtx.RequestID, gwCtx.APIID, gwCtx.Stage, gwCtx.HTTP.SourceIP)
+		}
 
 		b, err := httputil.DumpRequest(r, true)
 		logrus.Debug("Server revoke incoming request:")
