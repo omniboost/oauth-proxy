@@ -407,7 +407,7 @@ func (s *Server) NewProviderRevokeHandler(provider providers.RevokeProvider) htt
 		w.WriteHeader(http.StatusOK)
 
 		logrus.Debug("Server outgoing response (without headers for now):")
-		for _, s := range strings.Split(buf.String(), "\r\n") {
+		for s := range strings.SplitSeq(buf.String(), "\r\n") {
 			logrus.Debug(s)
 		}
 	}
