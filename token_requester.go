@@ -142,6 +142,12 @@ func (tr *TokenRequester) CodeExchange(req TokenRequest) (*Token, error) {
 	return token, errors.WithStack(err)
 }
 
+func (tr *TokenRequester) IncrementNrOfSubsequentProviderErrors(db mysql.DB, token *mysql.OauthToken) error {
+	token.NrOfSubsequentProviderErrors++
+	token.UpdatedAt = (time.Now())
+	return token.Save(context.Background(), db)
+}
+
 func (tr *TokenRequester) TokenRefreshAuthorizationCode(req TokenRequest) (*Token, error) {
 	var err error
 	token := &Token{}
@@ -206,6 +212,15 @@ func (tr *TokenRequester) TokenRefreshAuthorizationCode(req TokenRequest) (*Toke
 	}
 	token, err = tr.fetchAndSaveNewAuthorizationToken(trx, params)
 	if err != nil {
+		// check if we could find the token from the request in the db
+		if dbToken.ID != 0 {
+			// we found a token, increment the error counter
+			// rollback the transaction first so we can use a non-transactional
+			// db connection
+			trx.Rollback()
+			tr.IncrementNrOfSubsequentProviderErrors(tr.db, dbToken)
+		}
+
 		return token, errors.WithStack(err)
 	}
 
@@ -290,6 +305,15 @@ func (tr *TokenRequester) TokenRefreshPassword(req TokenRequest) (*Token, error)
 	}
 	token, err = tr.fetchAndSaveNewPasswordToken(trx, params)
 	if err != nil {
+		// check if we could find the token from the request in the db
+		if dbToken.ID != 0 {
+			// we found a token, increment the error counter
+			// rollback the transaction first so we can use a non-transactional
+			// db connection
+			trx.Rollback()
+			tr.IncrementNrOfSubsequentProviderErrors(tr.db, dbToken)
+		}
+
 		return token, errors.WithStack(err)
 	}
 
@@ -358,6 +382,15 @@ func (tr *TokenRequester) TokenRefreshClientCredentials(req TokenRequest) (*Toke
 	}
 	token, err = tr.fetchAndSaveNewClientCredentialsToken(trx, params)
 	if err != nil {
+		// check if we could find the token from the request in the db
+		if dbToken.ID != 0 {
+			// we found a token, increment the error counter
+			// rollback the transaction first so we can use a non-transactional
+			// db connection
+			trx.Rollback()
+			tr.IncrementNrOfSubsequentProviderErrors(tr.db, dbToken)
+		}
+
 		return token, errors.WithStack(err)
 	}
 
@@ -571,16 +604,17 @@ func (tr *TokenRequester) SaveAuthorizationToken(db mysql.DB, token *Token, para
 	if err != nil {
 		if errors.Cause(err) == sql.ErrNoRows {
 			dbToken = &mysql.OauthToken{
-				App:                      tr.provider.Name(),
-				Type:                     token.Type(),
-				GrantType:                params.GrantType,
-				ClientID:                 params.ClientID,
-				ClientSecret:             params.ClientSecret,
-				Username:                 params.Username,
-				OriginalRefreshToken:     originalRefreshToken,
-				CreatedAt:                (time.Now()),
-				CodeExchangeResponseBody: sql.NullString{String: string(b), Valid: true},
-				CodeVerifier:             params.CodeVerifier,
+				App:                          tr.provider.Name(),
+				Type:                         token.Type(),
+				GrantType:                    params.GrantType,
+				ClientID:                     params.ClientID,
+				ClientSecret:                 params.ClientSecret,
+				Username:                     params.Username,
+				OriginalRefreshToken:         originalRefreshToken,
+				CreatedAt:                    (time.Now()),
+				CodeExchangeResponseBody:     sql.NullString{String: string(b), Valid: true},
+				CodeVerifier:                 params.CodeVerifier,
+				NrOfSubsequentProviderErrors: 0,
 			}
 		} else {
 			return mysql.OauthToken{}, errors.WithStack(err)
