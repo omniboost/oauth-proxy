@@ -356,7 +356,7 @@ func (tr *TokenRequester) TokenRefreshClientCredentials(req TokenRequest) (*Toke
 	if params.CodeVerifier == "" && dbToken.CodeVerifier != "" {
 		params.CodeVerifier = dbToken.CodeVerifier
 	}
-	token, err = tr.fetchAndSaveNewPasswordToken(trx, params)
+	token, err = tr.fetchAndSaveNewClientCredentialsToken(trx, params)
 	if err != nil {
 		return token, errors.WithStack(err)
 	}
