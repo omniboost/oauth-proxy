@@ -26,7 +26,7 @@ func OauthTokensByAppAccessToken(ctx context.Context, db DB, app, accessToken st
 			_exists: true,
 		}
 		// scan
-		if err := rows.Scan(&ot.ID, &ot.App, &ot.Type, &ot.ClientID, &ot.ClientSecret, &ot.OriginalRefreshToken, &ot.RefreshToken, &ot.AccessToken, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt, &ot.CodeExchangeResponseBody, &ot.CodeVerifier, &ot.RefreshTokenExpiresAt, &ot.NrOfSubsequentProviderErrors); err != nil {
+		if err := rows.Scan(&ot.ID, &ot.App, &ot.Type, &ot.GrantType, &ot.ClientID, &ot.ClientSecret, &ot.Username, &ot.OriginalRefreshToken, &ot.RefreshToken, &ot.AccessToken, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt, &ot.CodeExchangeResponseBody, &ot.CodeVerifier, &ot.RefreshTokenExpiresAt, &ot.NrOfSubsequentProviderErrors); err != nil {
 			return nil, logerror(err)
 		}
 		res = append(res, &ot)
@@ -85,7 +85,7 @@ func OauthTokenByAppClientIDClientSecretUsername(ctx context.Context, db DB, app
 func OauthTokenByAppClientIDClientSecret(ctx context.Context, db DB, app, clientID, clientSecret string) (*OauthToken, error) {
 	// query
 	const sqlstr = `SELECT ` +
-		`id, app, type, grant_type, client_id, client_secret, username, original_refresh_token, refresh_token, access_token, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier, refresh_token_expires_at ` +
+		`id, app, type, grant_type, client_id, client_secret, username, original_refresh_token, refresh_token, access_token, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier, refresh_token_expires_at, nr_of_subsequent_provider_errors ` +
 		`FROM oauth_proxy.oauth_tokens ` +
 		`USE INDEX (ot_app_client_id_client_secret) ` +
 		`WHERE app = ? AND client_id = ? AND client_secret = ? ` +

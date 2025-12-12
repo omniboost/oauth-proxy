@@ -269,7 +269,7 @@ func OauthTokenByAppRefreshToken(ctx context.Context, db DB, app, refreshToken s
 	ot := OauthToken{
 		_exists: true,
 	}
-	if err := db.QueryRowContext(ctx, sqlstr, app, refreshToken).Scan(&ot.ID, &ot.App, &ot.Type, &ot.GrantType, &ot.ClientID, &ot.ClientSecret, &ot.Username, &ot.OriginalRefreshToken, &ot.RefreshToken, &ot.AccessToken, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt, &ot.CodeExchangeResponseBody, &ot.CodeVerifier, &ot.RefreshTokenExpiresAt); err != nil {
+	if err := db.QueryRowContext(ctx, sqlstr, app, refreshToken).Scan(&ot.ID, &ot.App, &ot.Type, &ot.GrantType, &ot.ClientID, &ot.ClientSecret, &ot.Username, &ot.OriginalRefreshToken, &ot.RefreshToken, &ot.AccessToken, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt, &ot.CodeExchangeResponseBody, &ot.CodeVerifier, &ot.RefreshTokenExpiresAt, &ot.NrOfSubsequentProviderErrors); err != nil {
 		return nil, logerror(err)
 	}
 	return &ot, nil
