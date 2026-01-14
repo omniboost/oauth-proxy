@@ -107,15 +107,17 @@ func (tr *TokenRevoker) revoke(request RevokeRequest) (*http.Response, error) {
 
 	if resp.StatusCode == http.StatusOK && request.params.Token != "" {
 		if request.params.TokenTypeHint == "refresh_token" {
-			token, err := mysql.OauthTokenByAppRefreshToken(ctx, tr.db, tr.provider.Name(), request.params.Token)
-			expiresAt := time.Now()
-			token.RefreshTokenExpiresAt = sql.NullTime{Time: expiresAt, Valid: true}
-			err = token.Save(ctx, tr.db)
-			if err != nil {
-				return nil, errors.WithStack(err)
+			token, err := mysql.OauthTokenByAppClientIDRefreshToken(ctx, tr.db, tr.provider.Name(), request.params.ClientID, request.params.Token)
+			if token != nil {
+				expiresAt := time.Now()
+				token.RefreshTokenExpiresAt = sql.NullTime{Time: expiresAt, Valid: true}
+				err = token.Save(ctx, tr.db)
+				if err != nil {
+					return nil, errors.WithStack(err)
+				}
 			}
 		} else if request.params.TokenTypeHint == "access_token" {
-			tokens, err := mysql.OauthTokensByAppAccessToken(ctx, tr.db, tr.provider.Name(), request.params.Token)
+			tokens, err := mysql.OauthTokensByAppClientIDAccessToken(ctx, tr.db, tr.provider.Name(), request.params.ClientID, request.params.Token)
 			if err != nil {
 				return nil, errors.WithStack(err)
 			}
@@ -154,6 +156,9 @@ type TokenRevokeResult struct {
 }
 
 type TokenRevokeParams struct {
+	ClientID     string `schema:"client_id"`
+	ClientSecret string `schema:"client_secret"`
+
 	Token         string `schema:"token"`
 	TokenTypeHint string `schema:"token_type_hint"`
 	Request       *http.Request

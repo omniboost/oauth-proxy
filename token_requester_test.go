@@ -172,7 +172,7 @@ func TestTokenRequester(t *testing.T) {
 		return
 	}
 
-	tokens, err := mysql.OauthTokensByAppAccessToken(context.Background(), dbh, provider.Name(), "TEST")
+	tokens, err := mysql.OauthTokensByAppClientIDAccessToken(context.Background(), dbh, provider.Name(), "TEST", "TEST")
 	if err != nil {
 		t.Error(err)
 		return

@@ -23,10 +23,11 @@ CREATE TABLE `oauth_tokens`
     `refresh_token_expires_at`         datetime(6) DEFAULT NULL,
     `nr_of_subsequent_provider_errors` int                                                          NOT NULL DEFAULT '0',
     PRIMARY KEY (`id`),
-    UNIQUE KEY `ot_app_client_id_client_secret_refresh_token` (`app`,`client_id`,`client_secret`,`refresh_token`) USING BTREE,
+    UNIQUE KEY `ot_app_client_id_client_secret_refresh_token` (`app`,`client_id`,`client_secret_hash`,`refresh_token_hash`) USING BTREE,
     KEY                                `ot_app_client_id_client_secret` (`app`,`client_id`,`client_secret`) USING BTREE,
-    KEY                                `ot_app_original_refresh_token` (`app`,`original_refresh_token`) USING BTREE,
-    KEY                                `ot_app_refresh_token` (`app`,`refresh_token`) USING BTREE
+    KEY                                `ot_app_client_id_client_secret_hash` (`app`,`client_id`,`client_secret_hash`) USING BTREE,
+    KEY                                `ot_app_original_refresh_token` (`app`,`original_refresh_token_hash`) USING BTREE,
+    KEY                                `ot_app_refresh_token` (`app`,`refresh_token_hash`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 CREATE TABLE `token_requests`
 (

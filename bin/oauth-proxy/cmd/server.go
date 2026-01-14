@@ -28,7 +28,7 @@ var serverCmd = &cobra.Command{
 
 		port := viper.GetInt("port")
 		s.SetPort(port)
-		s.Start()
+		err = s.Start()
 		log.Fatal(err)
 		return nil
 	},

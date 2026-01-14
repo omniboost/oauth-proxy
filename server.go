@@ -516,16 +516,40 @@ func (s *Server) GetTokenRequestParamsFromRequest(r *http.Request) (providers.To
 }
 
 func (s *Server) GetTokenRevokeParamsFromRequest(r *http.Request) (TokenRevokeParams, error) {
+	trp := TokenRevokeParams{}
+
 	err := r.ParseForm()
 	if err != nil {
 		return TokenRevokeParams{}, errors.WithStack(err)
 	}
 
-	return TokenRevokeParams{
+	params := TokenRevokeParams{
 		TokenTypeHint: r.Form.Get("token_type_hint"),
 		Token:         r.Form.Get("token"),
 		Request:       r,
-	}, nil
+	}
+
+	auth := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
+	if len(auth) == 2 && auth[0] == "Basic" {
+		payload, _ := base64.StdEncoding.DecodeString(auth[1])
+		pair := strings.SplitN(string(payload), ":", 2)
+
+		if len(pair) != 2 {
+			return trp, errors.New("garbled authorization header")
+		}
+
+		// correct authorization header found: use them for client_id and client_secret
+		params.ClientID, err = url.QueryUnescape(pair[0])
+		if err != nil {
+			return trp, errors.New("cannot url decode client_id from authorization header")
+		}
+		params.ClientSecret, err = url.QueryUnescape(pair[1])
+		if err != nil {
+			return trp, errors.New("cannot url decode client_secret from authorization header")
+		}
+	}
+
+	return params, nil
 }
 
 func (s *Server) GetTokenRequestParamsFromFormRequest(r *http.Request) (providers.TokenRequestParams, error) {
