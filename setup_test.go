@@ -79,10 +79,10 @@ func (v MockProvider) Route() string {
 }
 
 func (v MockProvider) Exchange(ctx context.Context, params providers.TokenRequestParams, opts ...oauth2.AuthCodeOption) (*oauth2.Token, error) {
-	return v.TokenSource(ctx, params).Token()
+	return v.TokenSourceAuthorizationCode(ctx, params).Token()
 }
 
-func (v MockProvider) TokenSource(ctx context.Context, params providers.TokenRequestParams) oauth2.TokenSource {
+func (v MockProvider) TokenSourceAuthorizationCode(ctx context.Context, params providers.TokenRequestParams) oauth2.TokenSource {
 	return MockTokenSource{}
 }
 
@@ -92,7 +92,7 @@ func (ts MockTokenSource) Token() (*oauth2.Token, error) {
 	return &oauth2.Token{
 		AccessToken:  "MOCK",
 		RefreshToken: "MOCK",
-		Expiry:       time.Time{},
+		Expiry:       time.Now(),
 		ExpiresIn:    0,
 	}, nil
 }
@@ -117,14 +117,14 @@ func (v *RandomProvider) Route() string {
 }
 
 func (v RandomProvider) Exchange(ctx context.Context, params providers.TokenRequestParams, opts ...oauth2.AuthCodeOption) (*oauth2.Token, error) {
-	return v.TokenSource(ctx, params).Token()
+	return v.TokenSourceAuthorizationCode(ctx, params).Token()
 }
 
-func (v RandomProvider) TokenSource(ctx context.Context, params providers.TokenRequestParams) oauth2.TokenSource {
+func (v RandomProvider) TokenSourceAuthorizationCode(ctx context.Context, params providers.TokenRequestParams) oauth2.TokenSource {
 	return v.tokenSource
 }
 func (v RandomProvider) Called() uint64 {
-    return v.tokenSource.Called.Load()
+	return v.tokenSource.Called.Load()
 }
 
 type RandomTokenSource struct {
@@ -132,6 +132,7 @@ type RandomTokenSource struct {
 }
 
 func (ts *RandomTokenSource) Token() (*oauth2.Token, error) {
+	time.Sleep(100 * time.Millisecond)
 	ts.Called.Add(1)
 	token := RandStringRunes(32)
 	return &oauth2.Token{
