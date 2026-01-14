@@ -158,6 +158,15 @@ func (s *Server) NewDB() (*sql.DB, error) {
 		_, _ = fmt.Fprint(writer, sf)
 	})
 
+	errorWriter := logrus.StandardLogger().WriterLevel(logrus.ErrorLevel)
+	mysql.SetErrorLogger(func(s string, v ...interface{}) {
+		sf := fmt.Sprintf(s, v...)
+		if !strings.HasSuffix(sf, "\n") {
+			sf = sf + "\n"
+		}
+		_, _ = fmt.Fprint(errorWriter, sf)
+	})
+
 	db.SetMaxOpenConns(1)
 	return db, errors.WithStack(err)
 }
