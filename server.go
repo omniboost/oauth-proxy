@@ -146,7 +146,18 @@ func (s *Server) NewDB() (*sql.DB, error) {
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	mysql.SetLogger(fmt.Printf)
+	// we only want query logs at debug level.
+	writer := logrus.StandardLogger().WriterLevel(logrus.DebugLevel)
+	// we need to add a newline because logrus uses a line-based reader,
+	// and if a log is not terminated with a newline it will not be printed.
+	mysql.SetLogger(func(s string, v ...interface{}) {
+		sf := fmt.Sprintf(s, v...)
+		if !strings.HasSuffix(sf, "\n") {
+			sf = sf + "\n"
+		}
+		_, _ = fmt.Fprint(writer, sf)
+	})
+
 	db.SetMaxOpenConns(1)
 	return db, errors.WithStack(err)
 }
