@@ -6,27 +6,33 @@ import (
 	"context"
 	"database/sql"
 	"time"
+
+	"github.com/omniboost/oauth-proxy/types"
 )
 
 // OauthToken represents a row from 'oauth_proxy.oauth_tokens'.
 type OauthToken struct {
-	ID                           int            `json:"id"`                               // id
-	App                          string         `json:"app"`                              // app
-	Type                         string         `json:"type"`                             // type
-	GrantType                    string         `json:"grant_type"`                       // grant_type
-	ClientID                     string         `json:"client_id"`                        // client_id
-	ClientSecret                 string         `json:"client_secret"`                    // client_secret
-	Username                     string         `json:"username"`                         // username
-	OriginalRefreshToken         string         `json:"original_refresh_token"`           // original_refresh_token
-	RefreshToken                 string         `json:"refresh_token"`                    // refresh_token
-	AccessToken                  string         `json:"access_token"`                     // access_token
-	ExpiresAt                    sql.NullTime   `json:"expires_at"`                       // expires_at
-	CreatedAt                    time.Time      `json:"created_at"`                       // created_at
-	UpdatedAt                    time.Time      `json:"updated_at"`                       // updated_at
-	CodeExchangeResponseBody     sql.NullString `json:"code_exchange_response_body"`      // code_exchange_response_body
-	CodeVerifier                 string         `json:"code_verifier"`                    // code_verifier
-	RefreshTokenExpiresAt        sql.NullTime   `json:"refresh_token_expires_at"`         // refresh_token_expires_at
-	NrOfSubsequentProviderErrors int            `json:"nr_of_subsequent_provider_errors"` // nr_of_subsequent_provider_errors
+	ID                           int                `json:"id"`                               // id
+	App                          string             `json:"app"`                              // app
+	Type                         string             `json:"type"`                             // type
+	GrantType                    string             `json:"grant_type"`                       // grant_type
+	ClientID                     string             `json:"client_id"`                        // client_id
+	ClientSecret                 string             `json:"client_secret"`                    // client_secret
+	ClientSecretHash             types.HashedString `json:"client_secret_hash"`               // client_secret_hash
+	Username                     string             `json:"username"`                         // username
+	OriginalRefreshToken         string             `json:"original_refresh_token"`           // original_refresh_token
+	OriginalRefreshTokenHash     types.HashedString `json:"original_refresh_token_hash"`      // original_refresh_token_hash
+	RefreshToken                 string             `json:"refresh_token"`                    // refresh_token
+	RefreshTokenHash             types.HashedString `json:"refresh_token_hash"`               // refresh_token_hash
+	AccessToken                  string             `json:"access_token"`                     // access_token
+	AccessTokenHash              types.HashedString `json:"access_token_hash"`                // access_token_hash
+	ExpiresAt                    sql.NullTime       `json:"expires_at"`                       // expires_at
+	CreatedAt                    time.Time          `json:"created_at"`                       // created_at
+	UpdatedAt                    time.Time          `json:"updated_at"`                       // updated_at
+	CodeExchangeResponseBody     sql.NullString     `json:"code_exchange_response_body"`      // code_exchange_response_body
+	CodeVerifier                 string             `json:"code_verifier"`                    // code_verifier
+	RefreshTokenExpiresAt        sql.NullTime       `json:"refresh_token_expires_at"`         // refresh_token_expires_at
+	NrOfSubsequentProviderErrors int                `json:"nr_of_subsequent_provider_errors"` // nr_of_subsequent_provider_errors
 	// xo fields
 	_exists, _deleted bool
 }
@@ -52,13 +58,13 @@ func (ot *OauthToken) Insert(ctx context.Context, db DB) error {
 	}
 	// insert (primary key generated and returned by database)
 	const sqlstr = `INSERT INTO oauth_proxy.oauth_tokens (` +
-		`app, type, grant_type, client_id, client_secret, username, original_refresh_token, refresh_token, access_token, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier, refresh_token_expires_at, nr_of_subsequent_provider_errors` +
+		`app, type, grant_type, client_id, client_secret, client_secret_hash, username, original_refresh_token, original_refresh_token_hash, refresh_token, refresh_token_hash, access_token, access_token_hash, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier, refresh_token_expires_at, nr_of_subsequent_provider_errors` +
 		`) VALUES (` +
-		`?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?` +
+		`?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?` +
 		`)`
 	// run
-	logf(sqlstr, ot.App, ot.Type, ot.GrantType, ot.ClientID, ot.ClientSecret, ot.Username, ot.OriginalRefreshToken, ot.RefreshToken, ot.AccessToken, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt, ot.CodeExchangeResponseBody, ot.CodeVerifier, ot.RefreshTokenExpiresAt, ot.NrOfSubsequentProviderErrors)
-	res, err := db.ExecContext(ctx, sqlstr, ot.App, ot.Type, ot.GrantType, ot.ClientID, ot.ClientSecret, ot.Username, ot.OriginalRefreshToken, ot.RefreshToken, ot.AccessToken, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt, ot.CodeExchangeResponseBody, ot.CodeVerifier, ot.RefreshTokenExpiresAt, ot.NrOfSubsequentProviderErrors)
+	logf(sqlstr, ot.App, ot.Type, ot.GrantType, ot.ClientID, ot.ClientSecret, ot.ClientSecretHash, ot.Username, ot.OriginalRefreshToken, ot.OriginalRefreshTokenHash, ot.RefreshToken, ot.RefreshTokenHash, ot.AccessToken, ot.AccessTokenHash, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt, ot.CodeExchangeResponseBody, ot.CodeVerifier, ot.RefreshTokenExpiresAt, ot.NrOfSubsequentProviderErrors)
+	res, err := db.ExecContext(ctx, sqlstr, ot.App, ot.Type, ot.GrantType, ot.ClientID, ot.ClientSecret, ot.ClientSecretHash, ot.Username, ot.OriginalRefreshToken, ot.OriginalRefreshTokenHash, ot.RefreshToken, ot.RefreshTokenHash, ot.AccessToken, ot.AccessTokenHash, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt, ot.CodeExchangeResponseBody, ot.CodeVerifier, ot.RefreshTokenExpiresAt, ot.NrOfSubsequentProviderErrors)
 	if err != nil {
 		return logerror(err)
 	}
@@ -84,11 +90,11 @@ func (ot *OauthToken) Update(ctx context.Context, db DB) error {
 
 	// update with primary key
 	const sqlstr = `UPDATE oauth_proxy.oauth_tokens SET ` +
-		`app = ?, type = ?, grant_type = ?, client_id = ?, client_secret = ?, username = ?, original_refresh_token = ?, refresh_token = ?, access_token = ?, expires_at = ?, created_at = ?, updated_at = ?, code_exchange_response_body = ?, code_verifier = ?, refresh_token_expires_at = ?, nr_of_subsequent_provider_errors = ? ` +
+		`app = ?, type = ?, grant_type = ?, client_id = ?, client_secret = ?, client_secret_hash = ?, username = ?, original_refresh_token = ?, original_refresh_token_hash = ?, refresh_token = ?, refresh_token_hash = ?, access_token = ?, access_token_hash = ?, expires_at = ?, created_at = ?, updated_at = ?, code_exchange_response_body = ?, code_verifier = ?, refresh_token_expires_at = ?, nr_of_subsequent_provider_errors = ? ` +
 		`WHERE id = ?`
 	// run
-	logf(sqlstr, ot.App, ot.Type, ot.GrantType, ot.ClientID, ot.ClientSecret, ot.Username, ot.OriginalRefreshToken, ot.RefreshToken, ot.AccessToken, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt, ot.CodeExchangeResponseBody, ot.CodeVerifier, ot.RefreshTokenExpiresAt, ot.NrOfSubsequentProviderErrors, ot.ID)
-	if _, err := db.ExecContext(ctx, sqlstr, ot.App, ot.Type, ot.GrantType, ot.ClientID, ot.ClientSecret, ot.Username, ot.OriginalRefreshToken, ot.RefreshToken, ot.AccessToken, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt, ot.CodeExchangeResponseBody, ot.CodeVerifier, ot.RefreshTokenExpiresAt, ot.NrOfSubsequentProviderErrors, ot.ID); err != nil {
+	logf(sqlstr, ot.App, ot.Type, ot.GrantType, ot.ClientID, ot.ClientSecret, ot.ClientSecretHash, ot.Username, ot.OriginalRefreshToken, ot.OriginalRefreshTokenHash, ot.RefreshToken, ot.RefreshTokenHash, ot.AccessToken, ot.AccessTokenHash, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt, ot.CodeExchangeResponseBody, ot.CodeVerifier, ot.RefreshTokenExpiresAt, ot.NrOfSubsequentProviderErrors, ot.ID)
+	if _, err := db.ExecContext(ctx, sqlstr, ot.App, ot.Type, ot.GrantType, ot.ClientID, ot.ClientSecret, ot.ClientSecretHash, ot.Username, ot.OriginalRefreshToken, ot.OriginalRefreshTokenHash, ot.RefreshToken, ot.RefreshTokenHash, ot.AccessToken, ot.AccessTokenHash, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt, ot.CodeExchangeResponseBody, ot.CodeVerifier, ot.RefreshTokenExpiresAt, ot.NrOfSubsequentProviderErrors, ot.ID); err != nil {
 		return logerror(err)
 	}
 	return nil
@@ -110,15 +116,15 @@ func (ot *OauthToken) Upsert(ctx context.Context, db DB) error {
 	}
 	// upsert
 	const sqlstr = `INSERT INTO oauth_proxy.oauth_tokens (` +
-		`id, app, type, grant_type, client_id, client_secret, username, original_refresh_token, refresh_token, access_token, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier, refresh_token_expires_at, nr_of_subsequent_provider_errors` +
+		`id, app, type, grant_type, client_id, client_secret, client_secret_hash, username, original_refresh_token, original_refresh_token_hash, refresh_token, refresh_token_hash, access_token, access_token_hash, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier, refresh_token_expires_at, nr_of_subsequent_provider_errors` +
 		`) VALUES (` +
-		`?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?` +
+		`?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?` +
 		`)` +
 		` ON DUPLICATE KEY UPDATE ` +
-		`app = VALUES(app), type = VALUES(type), grant_type = VALUES(grant_type), client_id = VALUES(client_id), client_secret = VALUES(client_secret), username = VALUES(username), original_refresh_token = VALUES(original_refresh_token), refresh_token = VALUES(refresh_token), access_token = VALUES(access_token), expires_at = VALUES(expires_at), created_at = VALUES(created_at), updated_at = VALUES(updated_at), code_exchange_response_body = VALUES(code_exchange_response_body), code_verifier = VALUES(code_verifier), refresh_token_expires_at = VALUES(refresh_token_expires_at), nr_of_subsequent_provider_errors = VALUES(nr_of_subsequent_provider_errors)`
+		`app = VALUES(app), type = VALUES(type), grant_type = VALUES(grant_type), client_id = VALUES(client_id), client_secret = VALUES(client_secret), client_secret_hash = VALUES(client_secret_hash), username = VALUES(username), original_refresh_token = VALUES(original_refresh_token), original_refresh_token_hash = VALUES(original_refresh_token_hash), refresh_token = VALUES(refresh_token), refresh_token_hash = VALUES(refresh_token_hash), access_token = VALUES(access_token), access_token_hash = VALUES(access_token_hash), expires_at = VALUES(expires_at), created_at = VALUES(created_at), updated_at = VALUES(updated_at), code_exchange_response_body = VALUES(code_exchange_response_body), code_verifier = VALUES(code_verifier), refresh_token_expires_at = VALUES(refresh_token_expires_at), nr_of_subsequent_provider_errors = VALUES(nr_of_subsequent_provider_errors)`
 	// run
-	logf(sqlstr, ot.ID, ot.App, ot.Type, ot.GrantType, ot.ClientID, ot.ClientSecret, ot.Username, ot.OriginalRefreshToken, ot.RefreshToken, ot.AccessToken, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt, ot.CodeExchangeResponseBody, ot.CodeVerifier, ot.RefreshTokenExpiresAt, ot.NrOfSubsequentProviderErrors)
-	if _, err := db.ExecContext(ctx, sqlstr, ot.ID, ot.App, ot.Type, ot.GrantType, ot.ClientID, ot.ClientSecret, ot.Username, ot.OriginalRefreshToken, ot.RefreshToken, ot.AccessToken, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt, ot.CodeExchangeResponseBody, ot.CodeVerifier, ot.RefreshTokenExpiresAt, ot.NrOfSubsequentProviderErrors); err != nil {
+	logf(sqlstr, ot.ID, ot.App, ot.Type, ot.GrantType, ot.ClientID, ot.ClientSecret, ot.ClientSecretHash, ot.Username, ot.OriginalRefreshToken, ot.OriginalRefreshTokenHash, ot.RefreshToken, ot.RefreshTokenHash, ot.AccessToken, ot.AccessTokenHash, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt, ot.CodeExchangeResponseBody, ot.CodeVerifier, ot.RefreshTokenExpiresAt, ot.NrOfSubsequentProviderErrors)
+	if _, err := db.ExecContext(ctx, sqlstr, ot.ID, ot.App, ot.Type, ot.GrantType, ot.ClientID, ot.ClientSecret, ot.ClientSecretHash, ot.Username, ot.OriginalRefreshToken, ot.OriginalRefreshTokenHash, ot.RefreshToken, ot.RefreshTokenHash, ot.AccessToken, ot.AccessTokenHash, ot.ExpiresAt, ot.CreatedAt, ot.UpdatedAt, ot.CodeExchangeResponseBody, ot.CodeVerifier, ot.RefreshTokenExpiresAt, ot.NrOfSubsequentProviderErrors); err != nil {
 		return logerror(err)
 	}
 	// set exists
@@ -153,7 +159,7 @@ func (ot *OauthToken) Delete(ctx context.Context, db DB) error {
 func OauthTokenByID(ctx context.Context, db DB, id int) (*OauthToken, error) {
 	// query
 	const sqlstr = `SELECT ` +
-		`id, app, type, grant_type, client_id, client_secret, username, original_refresh_token, refresh_token, access_token, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier, refresh_token_expires_at, nr_of_subsequent_provider_errors ` +
+		`id, app, type, grant_type, client_id, client_secret, client_secret_hash, username, original_refresh_token, original_refresh_token_hash, refresh_token, refresh_token_hash, access_token, access_token_hash, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier, refresh_token_expires_at, nr_of_subsequent_provider_errors ` +
 		`FROM oauth_proxy.oauth_tokens ` +
 		`WHERE id = ?`
 	// run
@@ -161,7 +167,7 @@ func OauthTokenByID(ctx context.Context, db DB, id int) (*OauthToken, error) {
 	ot := OauthToken{
 		_exists: true,
 	}
-	if err := db.QueryRowContext(ctx, sqlstr, id).Scan(&ot.ID, &ot.App, &ot.Type, &ot.GrantType, &ot.ClientID, &ot.ClientSecret, &ot.Username, &ot.OriginalRefreshToken, &ot.RefreshToken, &ot.AccessToken, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt, &ot.CodeExchangeResponseBody, &ot.CodeVerifier, &ot.RefreshTokenExpiresAt, &ot.NrOfSubsequentProviderErrors); err != nil {
+	if err := db.QueryRowContext(ctx, sqlstr, id).Scan(&ot.ID, &ot.App, &ot.Type, &ot.GrantType, &ot.ClientID, &ot.ClientSecret, &ot.ClientSecretHash, &ot.Username, &ot.OriginalRefreshToken, &ot.OriginalRefreshTokenHash, &ot.RefreshToken, &ot.RefreshTokenHash, &ot.AccessToken, &ot.AccessTokenHash, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt, &ot.CodeExchangeResponseBody, &ot.CodeVerifier, &ot.RefreshTokenExpiresAt, &ot.NrOfSubsequentProviderErrors); err != nil {
 		return nil, logerror(err)
 	}
 	return &ot, nil
@@ -173,7 +179,7 @@ func OauthTokenByID(ctx context.Context, db DB, id int) (*OauthToken, error) {
 func OauthTokensByAppClientIDClientSecret(ctx context.Context, db DB, app, clientID, clientSecret string) ([]*OauthToken, error) {
 	// query
 	const sqlstr = `SELECT ` +
-		`id, app, type, grant_type, client_id, client_secret, username, original_refresh_token, refresh_token, access_token, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier, refresh_token_expires_at, nr_of_subsequent_provider_errors ` +
+		`id, app, type, grant_type, client_id, client_secret, client_secret_hash, username, original_refresh_token, original_refresh_token_hash, refresh_token, refresh_token_hash, access_token, access_token_hash, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier, refresh_token_expires_at, nr_of_subsequent_provider_errors ` +
 		`FROM oauth_proxy.oauth_tokens ` +
 		`WHERE app = ? AND client_id = ? AND client_secret = ?`
 	// run
@@ -190,7 +196,7 @@ func OauthTokensByAppClientIDClientSecret(ctx context.Context, db DB, app, clien
 			_exists: true,
 		}
 		// scan
-		if err := rows.Scan(&ot.ID, &ot.App, &ot.Type, &ot.GrantType, &ot.ClientID, &ot.ClientSecret, &ot.Username, &ot.OriginalRefreshToken, &ot.RefreshToken, &ot.AccessToken, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt, &ot.CodeExchangeResponseBody, &ot.CodeVerifier, &ot.RefreshTokenExpiresAt, &ot.NrOfSubsequentProviderErrors); err != nil {
+		if err := rows.Scan(&ot.ID, &ot.App, &ot.Type, &ot.GrantType, &ot.ClientID, &ot.ClientSecret, &ot.ClientSecretHash, &ot.Username, &ot.OriginalRefreshToken, &ot.OriginalRefreshTokenHash, &ot.RefreshToken, &ot.RefreshTokenHash, &ot.AccessToken, &ot.AccessTokenHash, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt, &ot.CodeExchangeResponseBody, &ot.CodeVerifier, &ot.RefreshTokenExpiresAt, &ot.NrOfSubsequentProviderErrors); err != nil {
 			return nil, logerror(err)
 		}
 		res = append(res, &ot)
@@ -207,7 +213,7 @@ func OauthTokensByAppClientIDClientSecret(ctx context.Context, db DB, app, clien
 func OauthTokenByAppClientIDClientSecretRefreshToken(ctx context.Context, db DB, app, clientID, clientSecret, refreshToken string) (*OauthToken, error) {
 	// query
 	const sqlstr = `SELECT ` +
-		`id, app, type, grant_type, client_id, client_secret, username, original_refresh_token, refresh_token, access_token, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier, refresh_token_expires_at, nr_of_subsequent_provider_errors ` +
+		`id, app, type, grant_type, client_id, client_secret, client_secret_hash, username, original_refresh_token, original_refresh_token_hash, refresh_token, refresh_token_hash, access_token, access_token_hash, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier, refresh_token_expires_at, nr_of_subsequent_provider_errors ` +
 		`FROM oauth_proxy.oauth_tokens ` +
 		`WHERE app = ? AND client_id = ? AND client_secret = ? AND refresh_token = ?`
 	// run
@@ -215,7 +221,7 @@ func OauthTokenByAppClientIDClientSecretRefreshToken(ctx context.Context, db DB,
 	ot := OauthToken{
 		_exists: true,
 	}
-	if err := db.QueryRowContext(ctx, sqlstr, app, clientID, clientSecret, refreshToken).Scan(&ot.ID, &ot.App, &ot.Type, &ot.GrantType, &ot.ClientID, &ot.ClientSecret, &ot.Username, &ot.OriginalRefreshToken, &ot.RefreshToken, &ot.AccessToken, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt, &ot.CodeExchangeResponseBody, &ot.CodeVerifier, &ot.RefreshTokenExpiresAt, &ot.NrOfSubsequentProviderErrors); err != nil {
+	if err := db.QueryRowContext(ctx, sqlstr, app, clientID, clientSecret, refreshToken).Scan(&ot.ID, &ot.App, &ot.Type, &ot.GrantType, &ot.ClientID, &ot.ClientSecret, &ot.ClientSecretHash, &ot.Username, &ot.OriginalRefreshToken, &ot.OriginalRefreshTokenHash, &ot.RefreshToken, &ot.RefreshTokenHash, &ot.AccessToken, &ot.AccessTokenHash, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt, &ot.CodeExchangeResponseBody, &ot.CodeVerifier, &ot.RefreshTokenExpiresAt, &ot.NrOfSubsequentProviderErrors); err != nil {
 		return nil, logerror(err)
 	}
 	return &ot, nil
@@ -227,7 +233,7 @@ func OauthTokenByAppClientIDClientSecretRefreshToken(ctx context.Context, db DB,
 func OauthTokensByAppOriginalRefreshToken(ctx context.Context, db DB, app, originalRefreshToken string) ([]*OauthToken, error) {
 	// query
 	const sqlstr = `SELECT ` +
-		`id, app, type, grant_type, client_id, client_secret, username, original_refresh_token, refresh_token, access_token, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier, refresh_token_expires_at, nr_of_subsequent_provider_errors ` +
+		`id, app, type, grant_type, client_id, client_secret, client_secret_hash, username, original_refresh_token, original_refresh_token_hash, refresh_token, refresh_token_hash, access_token, access_token_hash, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier, refresh_token_expires_at, nr_of_subsequent_provider_errors ` +
 		`FROM oauth_proxy.oauth_tokens ` +
 		`WHERE app = ? AND original_refresh_token = ?`
 	// run
@@ -244,7 +250,7 @@ func OauthTokensByAppOriginalRefreshToken(ctx context.Context, db DB, app, origi
 			_exists: true,
 		}
 		// scan
-		if err := rows.Scan(&ot.ID, &ot.App, &ot.Type, &ot.GrantType, &ot.ClientID, &ot.ClientSecret, &ot.Username, &ot.OriginalRefreshToken, &ot.RefreshToken, &ot.AccessToken, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt, &ot.CodeExchangeResponseBody, &ot.CodeVerifier, &ot.RefreshTokenExpiresAt, &ot.NrOfSubsequentProviderErrors); err != nil {
+		if err := rows.Scan(&ot.ID, &ot.App, &ot.Type, &ot.GrantType, &ot.ClientID, &ot.ClientSecret, &ot.ClientSecretHash, &ot.Username, &ot.OriginalRefreshToken, &ot.OriginalRefreshTokenHash, &ot.RefreshToken, &ot.RefreshTokenHash, &ot.AccessToken, &ot.AccessTokenHash, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt, &ot.CodeExchangeResponseBody, &ot.CodeVerifier, &ot.RefreshTokenExpiresAt, &ot.NrOfSubsequentProviderErrors); err != nil {
 			return nil, logerror(err)
 		}
 		res = append(res, &ot)
@@ -261,7 +267,7 @@ func OauthTokensByAppOriginalRefreshToken(ctx context.Context, db DB, app, origi
 func OauthTokenByAppRefreshToken(ctx context.Context, db DB, app, refreshToken string) (*OauthToken, error) {
 	// query
 	const sqlstr = `SELECT ` +
-		`id, app, type, grant_type, client_id, client_secret, username, original_refresh_token, refresh_token, access_token, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier, refresh_token_expires_at, nr_of_subsequent_provider_errors ` +
+		`id, app, type, grant_type, client_id, client_secret, client_secret_hash, username, original_refresh_token, original_refresh_token_hash, refresh_token, refresh_token_hash, access_token, access_token_hash, expires_at, created_at, updated_at, code_exchange_response_body, code_verifier, refresh_token_expires_at, nr_of_subsequent_provider_errors ` +
 		`FROM oauth_proxy.oauth_tokens ` +
 		`WHERE app = ? AND refresh_token = ?`
 	// run
@@ -269,7 +275,7 @@ func OauthTokenByAppRefreshToken(ctx context.Context, db DB, app, refreshToken s
 	ot := OauthToken{
 		_exists: true,
 	}
-	if err := db.QueryRowContext(ctx, sqlstr, app, refreshToken).Scan(&ot.ID, &ot.App, &ot.Type, &ot.GrantType, &ot.ClientID, &ot.ClientSecret, &ot.Username, &ot.OriginalRefreshToken, &ot.RefreshToken, &ot.AccessToken, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt, &ot.CodeExchangeResponseBody, &ot.CodeVerifier, &ot.RefreshTokenExpiresAt, &ot.NrOfSubsequentProviderErrors); err != nil {
+	if err := db.QueryRowContext(ctx, sqlstr, app, refreshToken).Scan(&ot.ID, &ot.App, &ot.Type, &ot.GrantType, &ot.ClientID, &ot.ClientSecret, &ot.ClientSecretHash, &ot.Username, &ot.OriginalRefreshToken, &ot.OriginalRefreshTokenHash, &ot.RefreshToken, &ot.RefreshTokenHash, &ot.AccessToken, &ot.AccessTokenHash, &ot.ExpiresAt, &ot.CreatedAt, &ot.UpdatedAt, &ot.CodeExchangeResponseBody, &ot.CodeVerifier, &ot.RefreshTokenExpiresAt, &ot.NrOfSubsequentProviderErrors); err != nil {
 		return nil, logerror(err)
 	}
 	return &ot, nil

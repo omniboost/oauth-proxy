@@ -3,3 +3,4 @@
 /oauth-proxy.exe
 /db/production.sqlite3
 /.envrc
+bootstrap

@@ -108,7 +108,7 @@ func (tr *TokenRevoker) revoke(request RevokeRequest) (*http.Response, error) {
 	if resp.StatusCode == http.StatusOK && request.params.Token != "" {
 		if request.params.TokenTypeHint == "refresh_token" {
 			token, err := mysql.OauthTokenByAppRefreshToken(ctx, tr.db, tr.provider.Name(), request.params.Token)
-			expiresAt := (time.Now())
+			expiresAt := time.Now()
 			token.RefreshTokenExpiresAt = sql.NullTime{Time: expiresAt, Valid: true}
 			err = token.Save(ctx, tr.db)
 			if err != nil {
@@ -122,7 +122,7 @@ func (tr *TokenRevoker) revoke(request RevokeRequest) (*http.Response, error) {
 
 			// expire tokens
 			for _, t := range tokens {
-				expiresAt := (time.Now())
+				expiresAt := time.Now()
 				t.ExpiresAt = sql.NullTime{Time: expiresAt, Valid: true}
 				err := t.Save(ctx, tr.db)
 				if err != nil {
