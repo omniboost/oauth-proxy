@@ -12,27 +12,27 @@ import (
 
 // OauthToken represents a row from 'oauth_proxy.oauth_tokens'.
 type OauthToken struct {
-	ID                           int                `json:"id"`                               // id
-	App                          string             `json:"app"`                              // app
-	Type                         string             `json:"type"`                             // type
-	GrantType                    string             `json:"grant_type"`                       // grant_type
-	ClientID                     string             `json:"client_id"`                        // client_id
-	ClientSecret                 string             `json:"client_secret"`                    // client_secret
-	ClientSecretHash             types.HashedString `json:"client_secret_hash"`               // client_secret_hash
-	Username                     string             `json:"username"`                         // username
-	OriginalRefreshToken         string             `json:"original_refresh_token"`           // original_refresh_token
-	OriginalRefreshTokenHash     types.HashedString `json:"original_refresh_token_hash"`      // original_refresh_token_hash
-	RefreshToken                 string             `json:"refresh_token"`                    // refresh_token
-	RefreshTokenHash             types.HashedString `json:"refresh_token_hash"`               // refresh_token_hash
-	AccessToken                  string             `json:"access_token"`                     // access_token
-	AccessTokenHash              types.HashedString `json:"access_token_hash"`                // access_token_hash
-	ExpiresAt                    sql.NullTime       `json:"expires_at"`                       // expires_at
-	CreatedAt                    time.Time          `json:"created_at"`                       // created_at
-	UpdatedAt                    time.Time          `json:"updated_at"`                       // updated_at
-	CodeExchangeResponseBody     sql.NullString     `json:"code_exchange_response_body"`      // code_exchange_response_body
-	CodeVerifier                 string             `json:"code_verifier"`                    // code_verifier
-	RefreshTokenExpiresAt        sql.NullTime       `json:"refresh_token_expires_at"`         // refresh_token_expires_at
-	NrOfSubsequentProviderErrors int                `json:"nr_of_subsequent_provider_errors"` // nr_of_subsequent_provider_errors
+	ID                           int                             `json:"id"`                               // id
+	App                          string                          `json:"app"`                              // app
+	Type                         string                          `json:"type"`                             // type
+	GrantType                    string                          `json:"grant_type"`                       // grant_type
+	ClientID                     string                          `json:"client_id"`                        // client_id
+	ClientSecret                 types.OptionallyEncryptedString `json:"client_secret"`                    // client_secret
+	ClientSecretHash             types.HashedString              `json:"client_secret_hash"`               // client_secret_hash
+	Username                     string                          `json:"username"`                         // username
+	OriginalRefreshToken         types.OptionallyEncryptedString `json:"original_refresh_token"`           // original_refresh_token
+	OriginalRefreshTokenHash     types.HashedString              `json:"original_refresh_token_hash"`      // original_refresh_token_hash
+	RefreshToken                 types.OptionallyEncryptedString `json:"refresh_token"`                    // refresh_token
+	RefreshTokenHash             types.HashedString              `json:"refresh_token_hash"`               // refresh_token_hash
+	AccessToken                  types.OptionallyEncryptedString `json:"access_token"`                     // access_token
+	AccessTokenHash              types.HashedString              `json:"access_token_hash"`                // access_token_hash
+	ExpiresAt                    sql.NullTime                    `json:"expires_at"`                       // expires_at
+	CreatedAt                    time.Time                       `json:"created_at"`                       // created_at
+	UpdatedAt                    time.Time                       `json:"updated_at"`                       // updated_at
+	CodeExchangeResponseBody     types.OptionallyEncryptedString `json:"code_exchange_response_body"`      // code_exchange_response_body
+	CodeVerifier                 string                          `json:"code_verifier"`                    // code_verifier
+	RefreshTokenExpiresAt        sql.NullTime                    `json:"refresh_token_expires_at"`         // refresh_token_expires_at
+	NrOfSubsequentProviderErrors int                             `json:"nr_of_subsequent_provider_errors"` // nr_of_subsequent_provider_errors
 	// xo fields
 	_exists, _deleted bool
 }

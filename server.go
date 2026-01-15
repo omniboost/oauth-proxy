@@ -502,7 +502,7 @@ func (s *Server) GetTokenRequestParamsFromRequest(r *http.Request) (providers.To
 		}
 	}
 
-	params := providers.TokenRequestParams{}
+	var params providers.TokenRequestParams
 	switch content {
 	case "application/x-www-form-urlencoded", "text/plain", "":
 		params, err = s.GetTokenRequestParamsFromFormRequest(r)

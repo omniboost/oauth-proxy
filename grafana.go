@@ -74,6 +74,10 @@ func (s *Server) PushRequestResponseToGrafana(r *http.Request, w http.ResponseWr
 
 	// create actual http request to grafana
 	grafanaReq, err := http.NewRequest("POST", GRAFANA_LOKI_URL, bytes.NewBuffer(buf))
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
 	grafanaReq.SetBasicAuth(GRAFANA_LOKI_USER, GRAFANA_LOKI_TOKEN)
 	grafanaReq.Header.Set("Content-Type", "application/x-protobuf")
 

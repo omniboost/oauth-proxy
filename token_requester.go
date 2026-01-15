@@ -14,6 +14,7 @@ import (
 	"github.com/lytics/logrus"
 	"github.com/omniboost/oauth-proxy/mysql"
 	"github.com/omniboost/oauth-proxy/providers"
+	"github.com/omniboost/oauth-proxy/types"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 )
@@ -531,17 +532,17 @@ func (tr *TokenRequester) DBTokenToOauth2Token(dbToken *mysql.OauthToken) (*Toke
 	token := &Token{
 		Token: &oauth2.Token{
 			TokenType:    dbToken.Type,
-			AccessToken:  dbToken.AccessToken,
-			RefreshToken: dbToken.RefreshToken,
+			AccessToken:  string(dbToken.AccessToken),
+			RefreshToken: string(dbToken.RefreshToken),
 			Expiry:       dbToken.ExpiresAt.Time,
 		},
 		Raw: map[string]json.RawMessage{},
 	}
 
-	if dbToken.CodeExchangeResponseBody.String == "" {
+	if dbToken.CodeExchangeResponseBody == "" {
 		token.Raw = map[string]json.RawMessage{}
 	} else {
-		err = json.Unmarshal([]byte(dbToken.CodeExchangeResponseBody.String), &token.Raw)
+		err = json.Unmarshal([]byte(dbToken.CodeExchangeResponseBody), &token.Raw)
 	}
 	return token, errors.WithStack(err)
 }
@@ -608,13 +609,13 @@ func (tr *TokenRequester) SaveAuthorizationToken(db mysql.DB, token *Token, para
 				Type:                         token.Type(),
 				GrantType:                    params.GrantType,
 				ClientID:                     params.ClientID,
-				ClientSecret:                 params.ClientSecret,
+				ClientSecret:                 types.OptionallyEncryptedString(params.ClientSecret),
 				ClientSecretHash:             mysql.NewClientSecretHash(params.ClientID, params.ClientSecret),
 				Username:                     params.Username,
-				OriginalRefreshToken:         originalRefreshToken,
+				OriginalRefreshToken:         types.OptionallyEncryptedString(originalRefreshToken),
 				OriginalRefreshTokenHash:     mysql.NewOriginalRefreshTokenHash(params.ClientID, originalRefreshToken),
 				CreatedAt:                    time.Now(),
-				CodeExchangeResponseBody:     sql.NullString{String: string(b), Valid: true},
+				CodeExchangeResponseBody:     types.OptionallyEncryptedString(b),
 				CodeVerifier:                 params.CodeVerifier,
 				NrOfSubsequentProviderErrors: 0,
 			}
@@ -637,10 +638,10 @@ func (tr *TokenRequester) SaveAuthorizationToken(db mysql.DB, token *Token, para
 	}
 
 	// update only changes
-	dbToken.RefreshToken = token.RefreshToken
-	dbToken.RefreshTokenHash = mysql.NewRefreshTokenHash(dbToken.ClientID, dbToken.RefreshToken)
-	dbToken.AccessToken = token.AccessToken
-	dbToken.AccessTokenHash = mysql.NewAccessTokenHash(dbToken.ClientID, dbToken.AccessToken)
+	dbToken.RefreshToken = types.OptionallyEncryptedString(token.RefreshToken)
+	dbToken.RefreshTokenHash = mysql.NewRefreshTokenHash(dbToken.ClientID, token.RefreshToken)
+	dbToken.AccessToken = types.OptionallyEncryptedString(token.AccessToken)
+	dbToken.AccessTokenHash = mysql.NewAccessTokenHash(dbToken.ClientID, token.AccessToken)
 	dbToken.ExpiresAt = sql.NullTime{Time: token.Expiry, Valid: true}
 	dbToken.UpdatedAt = time.Now()
 	return *dbToken, dbToken.Save(context.Background(), db)
@@ -670,13 +671,13 @@ func (tr *TokenRequester) SavePasswordToken(db mysql.DB, token *Token, params pr
 				Type:                     token.Type(),
 				GrantType:                params.GrantType,
 				ClientID:                 params.ClientID,
-				ClientSecret:             params.ClientSecret,
+				ClientSecret:             types.OptionallyEncryptedString(params.ClientSecret),
 				ClientSecretHash:         mysql.NewClientSecretHash(params.ClientID, params.ClientSecret),
 				Username:                 params.Username,
-				OriginalRefreshToken:     originalRefreshToken,
+				OriginalRefreshToken:     types.OptionallyEncryptedString(originalRefreshToken),
 				OriginalRefreshTokenHash: mysql.NewOriginalRefreshTokenHash(params.ClientID, originalRefreshToken),
 				CreatedAt:                time.Now(),
-				CodeExchangeResponseBody: sql.NullString{String: string(b), Valid: true},
+				CodeExchangeResponseBody: types.OptionallyEncryptedString(b),
 				CodeVerifier:             params.CodeVerifier,
 			}
 		} else {
@@ -698,10 +699,10 @@ func (tr *TokenRequester) SavePasswordToken(db mysql.DB, token *Token, params pr
 	}
 
 	// update only changes
-	dbToken.RefreshToken = token.RefreshToken
-	dbToken.RefreshTokenHash = mysql.NewRefreshTokenHash(dbToken.ClientID, dbToken.RefreshToken)
-	dbToken.AccessToken = token.AccessToken
-	dbToken.AccessTokenHash = mysql.NewAccessTokenHash(dbToken.ClientID, dbToken.AccessToken)
+	dbToken.RefreshToken = types.OptionallyEncryptedString(token.RefreshToken)
+	dbToken.RefreshTokenHash = mysql.NewRefreshTokenHash(dbToken.ClientID, token.RefreshToken)
+	dbToken.AccessToken = types.OptionallyEncryptedString(token.AccessToken)
+	dbToken.AccessTokenHash = mysql.NewAccessTokenHash(dbToken.ClientID, token.AccessToken)
 	dbToken.ExpiresAt = sql.NullTime{Time: token.Expiry, Valid: true}
 	dbToken.UpdatedAt = time.Now()
 	return *dbToken, dbToken.Save(context.Background(), db)
@@ -725,13 +726,13 @@ func (tr *TokenRequester) SaveClientCredentialsToken(db mysql.DB, token *Token, 
 				Type:                     token.Type(),
 				GrantType:                params.GrantType,
 				ClientID:                 params.ClientID,
-				ClientSecret:             params.ClientSecret,
+				ClientSecret:             types.OptionallyEncryptedString(params.ClientSecret),
 				ClientSecretHash:         mysql.NewClientSecretHash(params.ClientID, params.ClientSecret),
 				Username:                 params.Username,
 				OriginalRefreshToken:     "",
 				OriginalRefreshTokenHash: mysql.NewOriginalRefreshTokenHash(params.ClientID, ""),
 				CreatedAt:                time.Now(),
-				CodeExchangeResponseBody: sql.NullString{String: string(b), Valid: true},
+				CodeExchangeResponseBody: types.OptionallyEncryptedString(b),
 				CodeVerifier:             params.CodeVerifier,
 			}
 		} else {
@@ -753,10 +754,10 @@ func (tr *TokenRequester) SaveClientCredentialsToken(db mysql.DB, token *Token, 
 	}
 
 	// update only changes
-	dbToken.RefreshToken = token.RefreshToken
-	dbToken.RefreshTokenHash = mysql.NewRefreshTokenHash(dbToken.ClientID, dbToken.RefreshToken)
-	dbToken.AccessToken = token.AccessToken
-	dbToken.AccessTokenHash = mysql.NewAccessTokenHash(dbToken.ClientID, dbToken.AccessToken)
+	dbToken.RefreshToken = types.OptionallyEncryptedString(token.RefreshToken)
+	dbToken.RefreshTokenHash = mysql.NewRefreshTokenHash(dbToken.ClientID, token.RefreshToken)
+	dbToken.AccessToken = types.OptionallyEncryptedString(token.AccessToken)
+	dbToken.AccessTokenHash = mysql.NewAccessTokenHash(dbToken.ClientID, token.AccessToken)
 	dbToken.ExpiresAt = sql.NullTime{Time: token.Expiry, Valid: true}
 	dbToken.UpdatedAt = time.Now()
 	return *dbToken, dbToken.Save(context.Background(), db)

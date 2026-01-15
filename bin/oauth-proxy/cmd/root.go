@@ -146,7 +146,7 @@ func initLogger() {
 
 	// Init logging of queries
 	mysql.XOLog = func(s string, p ...interface{}) {
-		logrus.Debug("> SQL: %s -- params: %v\n", s, p)
+		logrus.Debugf("> SQL: %s -- params: %v\n", s, p)
 	}
 }
 

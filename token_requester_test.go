@@ -106,8 +106,8 @@ func TestTokenRequester(t *testing.T) {
 		t.Errorf("expected TEST, got %s", dbToken2.RefreshToken)
 		return
 	}
-	if dbToken2.CodeExchangeResponseBody.String != `{"test":"TEST"}` {
-		t.Errorf("expected %s, got %s", `{"test":"TEST"}`, dbToken2.CodeExchangeResponseBody.String)
+	if dbToken2.CodeExchangeResponseBody != `{"test":"TEST"}` {
+		t.Errorf("expected %s, got %s", `{"test":"TEST"}`, dbToken2.CodeExchangeResponseBody)
 		return
 	}
 	if !dbToken2.ExpiresAt.Time.Equal(now) {
