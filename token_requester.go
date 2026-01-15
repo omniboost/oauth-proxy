@@ -547,44 +547,6 @@ func (tr *TokenRequester) DBTokenToOauth2Token(dbToken *mysql.OauthToken) (*Toke
 	return token, errors.WithStack(err)
 }
 
-func (tr *TokenRequester) SaveNewTokenRequest(db mysql.DB, params providers.TokenRequestParams) (*mysql.TokenRequest, error) {
-	tokenRequest := &mysql.TokenRequest{
-		ID:                  0,
-		App:                 tr.provider.Name(),
-		RequestGrantType:    params.GrantType,
-		RequestClientID:     params.ClientID,
-		RequestClientSecret: params.ClientSecret,
-		RequestUsername:     params.Username,
-		RequestRefreshToken: params.RefreshToken,
-		RequestCode:         params.Code,
-		RequestRedirectURL:  params.RedirectURL,
-		RequestCodeVerifier: params.CodeVerifier,
-		ResponseAccessToken: "",
-		ResponseTokenType:   "",
-		ResponseExpiry:      sql.NullTime{},
-		ResponseExtra:       "",
-		CreatedAt:           time.Now(),
-		UpdatedAt:           time.Now(),
-	}
-
-	err := tokenRequest.Save(context.Background(), db)
-	return tokenRequest, errors.WithStack(err)
-}
-
-func (tr *TokenRequester) AddTokenToTokenRequest(db mysql.DB, request *mysql.TokenRequest, token Token) (*mysql.TokenRequest, error) {
-	extra, err := json.Marshal(token.Raw)
-	if err != nil {
-		return request, errors.WithStack(err)
-	}
-	request.ResponseAccessToken = token.AccessToken
-	request.ResponseTokenType = token.TokenType
-	request.ResponseRefreshToken = token.RefreshToken
-	request.ResponseExpiry = sql.NullTime{Time: token.Expiry, Valid: true}
-	request.ResponseExtra = string(extra)
-	request.UpdatedAt = time.Now()
-	return request, request.Save(context.Background(), db)
-}
-
 func (tr *TokenRequester) SaveAuthorizationToken(db mysql.DB, token *Token, params providers.TokenRequestParams) (mysql.OauthToken, error) {
 	// @TODO: How to handle this better?
 	// - remove the checking of ErrNoRows
@@ -772,21 +734,11 @@ func (tr *TokenRequester) handleResults(request TokenRequest, token *Token, err 
 }
 
 func (tr *TokenRequester) fetchAndSaveNewAuthorizationToken(db mysql.DB, params providers.TokenRequestParams) (*Token, error) {
-	trDB, err := tr.SaveNewTokenRequest(db, params)
-	if err != nil {
-		return &Token{}, errors.WithStack(err)
-	}
-
 	t, err := tr.FetchNewTokenAuthorizationCode(params)
 	token := &Token{Token: t, Raw: map[string]json.RawMessage{}}
 	if err != nil {
 		e := errors.Wrapf(err, "something went wrong fetching new token (%s): %s", params.RefreshToken, err)
 		return token, e
-	}
-
-	trDB, err = tr.AddTokenToTokenRequest(db, trDB, *token)
-	if err != nil {
-		return token, errors.WithStack(err)
 	}
 
 	logrus.Debugf("saving new token to database (%s)", params.RefreshToken)
@@ -800,21 +752,11 @@ func (tr *TokenRequester) fetchAndSaveNewAuthorizationToken(db mysql.DB, params 
 }
 
 func (tr *TokenRequester) fetchAndSaveNewPasswordToken(db mysql.DB, params providers.TokenRequestParams) (*Token, error) {
-	trDB, err := tr.SaveNewTokenRequest(db, params)
-	if err != nil {
-		return &Token{}, errors.WithStack(err)
-	}
-
 	t, err := tr.FetchNewTokenPassword(params)
 	token := &Token{Token: t, Raw: map[string]json.RawMessage{}}
 	if err != nil {
 		e := errors.Wrapf(err, "something went wrong fetching new token (%s): %s", params.Username, err)
 		return token, e
-	}
-
-	trDB, err = tr.AddTokenToTokenRequest(db, trDB, *token)
-	if err != nil {
-		return token, errors.WithStack(err)
 	}
 
 	logrus.Debugf("saving new token to database (%s)", params.Username)
@@ -828,21 +770,11 @@ func (tr *TokenRequester) fetchAndSaveNewPasswordToken(db mysql.DB, params provi
 }
 
 func (tr *TokenRequester) fetchAndSaveNewClientCredentialsToken(db mysql.DB, params providers.TokenRequestParams) (*Token, error) {
-	trDB, err := tr.SaveNewTokenRequest(db, params)
-	if err != nil {
-		return &Token{}, errors.WithStack(err)
-	}
-
 	t, err := tr.FetchNewTokenClientCredentials(params)
 	token := &Token{Token: t, Raw: map[string]json.RawMessage{}}
 	if err != nil {
 		e := errors.Wrapf(err, "something went wrong fetching new token: %s", err)
 		return token, e
-	}
-
-	trDB, err = tr.AddTokenToTokenRequest(db, trDB, *token)
-	if err != nil {
-		return token, errors.WithStack(err)
 	}
 
 	logrus.Debugf("saving new token to database (%s)", token.AccessToken)

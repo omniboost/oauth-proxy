@@ -43,12 +43,7 @@ func TestTokenRequester(t *testing.T) {
 		CodeVerifier: "",
 	}
 
-	tokenRequest, err := tr.SaveNewTokenRequest(dbh, params)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
+	var err error
 	_, err = tr.AuthorizationTokenFromDB(dbh, params)
 	if err == nil {
 		t.Error("expected error, got nil")
@@ -112,63 +107,6 @@ func TestTokenRequester(t *testing.T) {
 	}
 	if !dbToken2.ExpiresAt.Time.Equal(now) {
 		t.Errorf("expected %s, got %s", dbToken2.ExpiresAt.Time, now)
-		return
-	}
-
-	// add new token to token request
-	tokenRequest, err = tr.AddTokenToTokenRequest(dbh, tokenRequest, proxyToken)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	// tokenRequest should contain the token fields
-	if tokenRequest.App != "TEST" {
-		t.Errorf("expected TEST, got %s", tokenRequest.App)
-		return
-	}
-	if tokenRequest.RequestClientID != "TEST" {
-		t.Errorf("expected TEST, got %s", tokenRequest.RequestClientID)
-		return
-	}
-	if tokenRequest.RequestClientSecret != "TEST" {
-		t.Errorf("expected TEST, got %s", tokenRequest.RequestClientSecret)
-		return
-	}
-	if tokenRequest.RequestRefreshToken != "TEST" {
-		t.Errorf("expected TEST, got %s", tokenRequest.RequestRefreshToken)
-		return
-	}
-	if tokenRequest.RequestCode != "" {
-		t.Errorf("expected empty, got %s", tokenRequest.RequestCode)
-		return
-	}
-	if tokenRequest.RequestRedirectURL != "http://localhost:8080" {
-		t.Errorf("expected http://localhost:8080, got %s", tokenRequest.RequestRedirectURL)
-		return
-	}
-	if tokenRequest.RequestCodeVerifier != "" {
-		t.Errorf("expected empty, got %s", tokenRequest.RequestCodeVerifier)
-		return
-	}
-	if tokenRequest.ResponseAccessToken != "TEST" {
-		t.Errorf("expected TEST, got %s", tokenRequest.ResponseAccessToken)
-		return
-	}
-	if tokenRequest.ResponseTokenType != "Bearer" {
-		t.Errorf("expected Bearer, got %s", tokenRequest.ResponseTokenType)
-		return
-	}
-	if tokenRequest.ResponseRefreshToken != "TEST" {
-		t.Errorf("expected TEST, got %s", tokenRequest.ResponseRefreshToken)
-		return
-	}
-	if tokenRequest.ResponseExpiry.Time != token.Expiry {
-		t.Errorf("expected %s, got %s", token.Expiry, tokenRequest.ResponseExpiry.Time)
-		return
-	}
-	if tokenRequest.ResponseExtra != `{"test":"TEST"}` {
-		t.Errorf("expected %s, got %s", `{"test":"TEST"}`, tokenRequest.ResponseExtra)
 		return
 	}
 
