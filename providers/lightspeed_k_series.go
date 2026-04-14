@@ -2,14 +2,14 @@ package providers
 
 import (
 	"context"
-	"net/url"
 
 	"golang.org/x/oauth2"
 )
 
 type LightspeedKSeries struct {
-	name    string
-	baseURL url.URL
+	name     string
+	authURL  string
+	tokenURL string
 }
 
 func NewLightspeedKSeries() *LightspeedKSeries {
@@ -21,8 +21,13 @@ func (l LightspeedKSeries) WithName(name string) LightspeedKSeries {
 	return l
 }
 
-func (l LightspeedKSeries) WithBaseURL(url url.URL) LightspeedKSeries {
-	l.baseURL = url
+func (l LightspeedKSeries) WithAuthURL(u string) LightspeedKSeries {
+	l.authURL = u
+	return l
+}
+
+func (l LightspeedKSeries) WithTokenURL(u string) LightspeedKSeries {
+	l.tokenURL = u
 	return l
 }
 
@@ -41,8 +46,8 @@ func (l LightspeedKSeries) oauthConfig() *oauth2.Config {
 		ClientSecret: "",
 		Scopes:       []string{},
 		Endpoint: oauth2.Endpoint{
-			AuthURL:  l.baseURL.String() + "/oauth/authorize",
-			TokenURL: l.baseURL.String() + "/oauth/token",
+			AuthURL:  l.authURL,
+			TokenURL: l.tokenURL,
 		},
 	}
 }

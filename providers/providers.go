@@ -100,18 +100,10 @@ func Load() Providers {
 				Scheme: "https",
 				Host:   "lightspeedapis.com",
 			}),
-		NewLightspeedKSeriesV2().
-			WithName("lightspeed-k-series-v2").
-			WithBaseURL(url.URL{
-				Scheme: "https",
-				Host:   "auth.lsk-demo.app",
-			}),
 		NewLightspeedKSeries().
 			WithName("lightspeed-k-series").
-			WithBaseURL(url.URL{
-				Scheme: "https",
-				Host:   "nightswatch.ikentoo.com",
-			}),
+			WithAuthURL("https://nightswatch.ikentoo.com/oauth/authorize").
+			WithTokenURL("https://nightswatch.ikentoo.com/oauth/token"),
 		NewProcountor().
 			WithName("procountor"),
 		NewLightspeedRetail().
