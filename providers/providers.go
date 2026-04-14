@@ -104,6 +104,14 @@ func Load() Providers {
 			WithName("lightspeed-k-series").
 			WithAuthURL("https://nightswatch.ikentoo.com/oauth/authorize").
 			WithTokenURL("https://nightswatch.ikentoo.com/oauth/token"),
+		NewLightspeedKSeries().
+			WithName("lightspeed-k-series-v2").
+			WithAuthURL("https://auth.lsk-prod.app/realms/k-series/protocol/openid-connect/auth").
+			WithTokenURL("https://auth.lsk-prod.app/realms/k-series/protocol/openid-connect/token"),
+		NewLightspeedKSeries().
+			WithName("lightspeed-k-series-v2.demo").
+			WithAuthURL("https://auth.lsk-demo.app/realms/k-series/protocol/openid-connect/auth").
+			WithTokenURL("https://auth.lsk-demo.app/realms/k-series/protocol/openid-connect/token"),
 		NewProcountor().
 			WithName("procountor"),
 		NewLightspeedRetail().
