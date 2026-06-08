@@ -179,6 +179,8 @@ func Load() Providers {
 			WithName("opentable"),
 		NewMYOB().
 			WithName("myob"),
+		NewTripleseat().
+			WithName("tripleseat"),
 	}
 }
 
