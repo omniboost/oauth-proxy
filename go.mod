@@ -11,7 +11,7 @@ require (
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/snappy v1.0.0
-	github.com/grafana/loki/v3 v3.6.3
+	github.com/grafana/loki/v3 v3.6.4
 	github.com/joefitzgerald/passwordcredentials v0.3.1
 	github.com/json-iterator/go v1.1.12
 	github.com/lytics/logrus v0.0.0-20170528191427-4389a17ed024
@@ -61,7 +61,7 @@ require (
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
-	github.com/grafana/dskit v0.0.0-20250828173137-de14cf923eeb // indirect
+	github.com/grafana/dskit v0.0.0-20250917065751-798f5a8fa154 // indirect
 	github.com/grafana/gomemcache v0.0.0-20250828162811-a96f6acee2fe // indirect
 	github.com/grafana/jsonparser v0.0.0-20241004153430-023329977675 // indirect
 	github.com/grafana/loki/pkg/push v0.0.0-20250630054201-94c0ba7b0952 // indirect
