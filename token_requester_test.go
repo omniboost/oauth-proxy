@@ -162,8 +162,26 @@ func TestTokenExpired(t *testing.T) {
 		return
 	}
 
-	if newToken.RefreshToken != "MOCK" {
+	if newToken.AccessToken != "MOCK" {
 		t.Error("expected to receive a new token")
+		return
+	}
+
+	// the caller receives the immutable original refresh token, not the
+	// rotated one (CSI-2200)
+	if newToken.RefreshToken != "TEST_TOKEN_EXPIRED" {
+		t.Errorf("expected original refresh token TEST_TOKEN_EXPIRED, got %s", newToken.RefreshToken)
+		return
+	}
+
+	// the rotated refresh token is stored in the database
+	dbToken, err := mysql.OauthTokenByAppClientIDClientSecretRefreshTokenOrOriginalRefreshToken(context.Background(), dbh, provider.Name(), params.ClientID, params.ClientSecret, params.RefreshToken)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if dbToken.RefreshToken != "MOCK" {
+		t.Errorf("expected stored refresh token MOCK, got %s", dbToken.RefreshToken)
 		return
 	}
 }

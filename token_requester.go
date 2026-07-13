@@ -135,9 +135,18 @@ func (tr *TokenRequester) CodeExchange(req TokenRequest) (*Token, error) {
 		return token, errors.WithStack(err)
 	}
 
-	_, err = tr.SaveAuthorizationToken(tr.db, token, params)
+	dbToken, err := tr.SaveAuthorizationToken(tr.db, token, params)
 	if err != nil {
 		return token, err
+	}
+
+	// return the immutable original refresh token to the caller instead of
+	// the current refresh token. The current refresh token changes on every
+	// refresh, so a caller storing it would lose access to this row after
+	// the next rotation (CSI-2200: some providers, like ikentoo, return the
+	// row's current refresh token again on a second code exchange)
+	if dbToken.OriginalRefreshToken != "" {
+		token.RefreshToken = string(dbToken.OriginalRefreshToken)
 	}
 
 	return token, errors.WithStack(err)
@@ -200,6 +209,11 @@ func (tr *TokenRequester) TokenRefreshAuthorizationCode(req TokenRequest) (*Toke
 		// token is valid, use that
 		logrus.Debugf("token valid until: %s", token.Expiry.String())
 		logrus.Debugf("sending existing token to requester (%s)", params.RefreshToken)
+		// return the immutable original refresh token so the caller keeps a
+		// value that matches this row after future rotations (CSI-2200)
+		if dbToken.OriginalRefreshToken != "" {
+			token.RefreshToken = string(dbToken.OriginalRefreshToken)
+		}
 		return token, errors.WithStack(err)
 	}
 
@@ -742,10 +756,16 @@ func (tr *TokenRequester) fetchAndSaveNewAuthorizationToken(db mysql.DB, params 
 	}
 
 	logrus.Debugf("saving new token to database (%s)", params.RefreshToken)
-	_, err = tr.SaveAuthorizationToken(db, token, params)
+	dbToken, err := tr.SaveAuthorizationToken(db, token, params)
 	if err != nil {
 		e := errors.Wrapf(err, "something went wrong saving a new token to the database (%s): %s", params.RefreshToken, err)
 		return token, e
+	}
+
+	// return the immutable original refresh token so the caller keeps a
+	// value that matches this row after future rotations (CSI-2200)
+	if dbToken.OriginalRefreshToken != "" {
+		token.RefreshToken = string(dbToken.OriginalRefreshToken)
 	}
 
 	return token, nil
