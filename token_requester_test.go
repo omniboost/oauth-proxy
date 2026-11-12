@@ -54,7 +54,7 @@ func TestTokenRequester(t *testing.T) {
 		return
 	}
 
-	dbToken, err := tr.SaveAuthorizationToken(dbh, &proxyToken, params)
+	dbToken, err := tr.SaveAuthorizationToken(dbh, &proxyToken, params, nil)
 	if err != nil {
 		t.Error(err)
 		return
@@ -149,13 +149,13 @@ func TestTokenExpired(t *testing.T) {
 		Token: token,
 		Raw:   map[string]json.RawMessage{},
 	}
-	_, err := tr.SaveAuthorizationToken(dbh, &proxyToken, params)
+	_, err := tr.SaveAuthorizationToken(dbh, &proxyToken, params, nil)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	tokenRequest := tr.NewTokenRequest(params)
+	tokenRequest := tr.NewTokenRequest(params, nil, nil)
 	newToken, err := tr.TokenRefresh(tokenRequest)
 	if err != nil {
 		t.Error(err)
@@ -212,7 +212,7 @@ func TestTokenRefreshParallel(t *testing.T) {
 		Token: token,
 		Raw:   map[string]json.RawMessage{},
 	}
-	_, err = tr.SaveAuthorizationToken(dbh, &proxyToken, params)
+	_, err = tr.SaveAuthorizationToken(dbh, &proxyToken, params, nil)
 	if err != nil {
 		t.Error(err)
 		return
@@ -223,7 +223,7 @@ func TestTokenRefreshParallel(t *testing.T) {
 	// create token requests
 	requests := make([]oauthproxy.TokenRequest, parallel)
 	for i := 0; i < parallel; i++ {
-		requests[i] = tr.NewTokenRequest(params)
+		requests[i] = tr.NewTokenRequest(params, nil, nil)
 	}
 
 	// execute token requests parallel
@@ -232,8 +232,9 @@ func TestTokenRefreshParallel(t *testing.T) {
 	wg.Add(parallel)
 	for i, request := range requests {
 		go func(request oauthproxy.TokenRequest) {
+			defer wg.Done()
+			var err error
 			tokens[i], err = tr.TokenRefresh(request)
-			wg.Done()
 			if err != nil {
 				t.Errorf("%+v", err)
 			}

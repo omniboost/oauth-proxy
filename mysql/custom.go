@@ -35,6 +35,40 @@ func NewClientSecretHash(clientID, clientSecret string) types.HashedString {
 	return types.NewHashedString("CS", clientID, clientSecret)
 }
 
+// ExpireRefreshTokenByID changes only the revocation marker. Callers must hold
+// the token's row lock while selecting and revoking its current refresh token.
+func ExpireRefreshTokenByID(ctx context.Context, db DB, id int, expiresAt time.Time) error {
+	const sqlstr = `UPDATE oauth_proxy.oauth_tokens SET refresh_token_expires_at = ? WHERE id = ?`
+	_, err := db.ExecContext(ctx, sqlstr, expiresAt, id)
+	if err != nil {
+		return logerror(err)
+	}
+	return nil
+}
+
+// ExpireAccessTokensByAppClientIDAccessToken atomically expires matching access
+// tokens without writing back a token row loaded before a concurrent rotation.
+func ExpireAccessTokensByAppClientIDAccessToken(ctx context.Context, db DB, app, clientID, accessToken string, expiresAt time.Time) error {
+	const sqlstr = `UPDATE oauth_proxy.oauth_tokens SET expires_at = ? ` +
+		`WHERE app = ? AND access_token_hash = ? AND (refresh_token_expires_at IS NULL OR refresh_token_expires_at > ?)`
+	_, err := db.ExecContext(ctx, sqlstr, expiresAt, app, NewAccessTokenHash(clientID, accessToken), expiresAt)
+	if err != nil {
+		return logerror(err)
+	}
+	return nil
+}
+
+// IncrementTokenProviderErrors runs after a failed refresh transaction has
+// rolled back. Update only the counter so a concurrent revoke is preserved.
+func IncrementTokenProviderErrors(ctx context.Context, db DB, id int, updatedAt time.Time) error {
+	const sqlstr = `UPDATE oauth_proxy.oauth_tokens SET nr_of_subsequent_provider_errors = nr_of_subsequent_provider_errors + 1, updated_at = ? WHERE id = ?`
+	_, err := db.ExecContext(ctx, sqlstr, updatedAt, id)
+	if err != nil {
+		return logerror(err)
+	}
+	return nil
+}
+
 func OauthTokensByAppClientIDAccessToken(ctx context.Context, db DB, app, clientID, accessToken string) ([]*OauthToken, error) {
 	accessTokenHash := NewAccessTokenHash(clientID, accessToken)
 	// query

@@ -116,7 +116,7 @@ func (s *Server) NewRouter() *http.ServeMux {
 	r := http.NewServeMux()
 
 	for _, prov := range s.providers {
-		r.Handle(prov.Route(), s.logToGrafana(s.NewProviderTokenHandler(prov)))
+		r.Handle(prov.Route(), s.NewProviderTokenHandler(prov))
 
 		if i, ok := prov.(providers.RevokeProvider); ok {
 			logrus.Debugf("Adding revoke route for provider %s", prov.Name())
@@ -274,8 +274,12 @@ func (s *Server) NewProviderTokenHandler(provider providers.Provider) http.Handl
 	//  	client_secret: "n3G7KAhcv8OH",
 	// }
 
-	return func(w http.ResponseWriter, r *http.Request) {
+	return s.logToGrafana(func(w http.ResponseWriter, r *http.Request, events *GrafanaEvents) {
 		defer r.Body.Close()
+
+		// every request gets its own sentry hub so tags don't leak into other
+		// (concurrent or subsequent) requests
+		hub := sentry.CurrentHub().Clone()
 
 		// Get the Lambda runtime context (aws-lambda-go/lambdacontext)
 		if lc, ok := core.GetRuntimeContextFromContextV2(r.Context()); ok && lc != nil {
@@ -294,26 +298,24 @@ func (s *Server) NewProviderTokenHandler(provider providers.Provider) http.Handl
 			logrus.Debug(s)
 		}
 		if err != nil {
-			sentry.CaptureException(err)
+			captureException(hub, err)
 			s.ErrorResponse(w, err)
 			return
 		}
 
 		trp, err := s.GetTokenRequestParamsFromRequest(r)
 		if err != nil {
-			sentry.CaptureException(err)
+			captureException(hub, err)
 			s.ErrorResponse(w, err)
 			return
 		}
 
-		sentry.ConfigureScope(func(scope *sentry.Scope) {
+		hub.ConfigureScope(func(scope *sentry.Scope) {
+			// never send secrets (client secret, tokens, code, code verifier)
+			// to sentry: the TokenID tag identifies the database row instead
 			scope.SetTag("Provider", provider.Name())
 			scope.SetTag("ClientID", trp.ClientID)
-			scope.SetExtra("ClientSecret", trp.ClientSecret)
-			scope.SetTag("RefreshToken", trp.RefreshToken)
-			scope.SetExtra("Code", trp.Code)
 			scope.SetExtra("RedirectURL", trp.RedirectURL)
-			scope.SetExtra("CodeVerifier", trp.CodeVerifier)
 		})
 
 		// use reqBody.RefreshToken, reqBody.ClientID & reqBody.ClientSecret to
@@ -325,9 +327,9 @@ func (s *Server) NewProviderTokenHandler(provider providers.Provider) http.Handl
 		// Update: can't do that because I don't have access to oauth2.Token.raw
 		// Only Token.Extra(string)
 
-		token, err := s.RequestToken(provider, trp)
+		token, err := s.RequestToken(provider, trp, events, hub)
 		if err != nil {
-			sentry.CaptureException(err)
+			captureException(hub, err)
 			s.ErrorResponse(w, err)
 			return
 		}
@@ -358,7 +360,7 @@ func (s *Server) NewProviderTokenHandler(provider providers.Provider) http.Handl
 		for _, s := range strings.Split(buf.String(), "\r\n") {
 			logrus.Debug(s)
 		}
-	}
+	})
 }
 
 func (s *Server) NewProviderRevokeHandler(provider providers.RevokeProvider) http.HandlerFunc {
@@ -368,8 +370,12 @@ func (s *Server) NewProviderRevokeHandler(provider providers.RevokeProvider) htt
 	// - send request to provider endpoint
 	// - return response
 
-	return func(w http.ResponseWriter, r *http.Request) {
+	return s.logToGrafana(func(w http.ResponseWriter, r *http.Request, events *GrafanaEvents) {
 		defer r.Body.Close()
+
+		// every request gets its own sentry hub so tags don't leak into other
+		// (concurrent or subsequent) requests
+		hub := sentry.CurrentHub().Clone()
 
 		// Get the Lambda runtime context (aws-lambda-go/lambdacontext)
 		if lc, ok := core.GetRuntimeContextFromContextV2(r.Context()); ok && lc != nil {
@@ -386,19 +392,30 @@ func (s *Server) NewProviderRevokeHandler(provider providers.RevokeProvider) htt
 		logrus.Debug("Server revoke incoming request:")
 		logrus.Debug(string(b))
 		if err != nil {
+			captureException(hub, err)
 			s.ErrorResponse(w, err)
 			return
 		}
 
 		rrp, err := s.GetTokenRevokeParamsFromRequest(r)
 		if err != nil {
+			captureException(hub, err)
 			s.ErrorResponse(w, err)
 			return
 		}
 
+		// never send the token or client secret to sentry: the TokenID tag
+		// identifies the database row instead
+		hub.ConfigureScope(func(scope *sentry.Scope) {
+			scope.SetTag("Provider", provider.Name())
+			scope.SetTag("ClientID", rrp.ClientID)
+			scope.SetTag("TokenTypeHint", rrp.TokenTypeHint)
+		})
+
 		logrus.Debug("Revoking token")
-		resp, err := s.RevokeToken(provider, rrp)
+		resp, err := s.RevokeToken(provider, rrp, events, hub)
 		if err != nil {
+			captureException(hub, err)
 			s.ErrorResponse(w, err)
 			return
 		}
@@ -410,27 +427,29 @@ func (s *Server) NewProviderRevokeHandler(provider providers.RevokeProvider) htt
 			}
 		}
 
+		// pass on the status code of the provider, so the client knows when
+		// revoking failed
+		w.WriteHeader(resp.StatusCode)
+
 		// resp.Body -> buffer -> log
 		//           -> http.ResponseWriter -> response to client
 
 		var buf bytes.Buffer
 		rsp := io.MultiWriter(w, &buf)
 
-		// pipe response body to client
+		// pipe response body to client. The status code is already sent, so
+		// an error can't be returned to the client anymore
 		_, err = io.Copy(rsp, resp.Body)
 		if err != nil {
-			s.ErrorResponse(w, err)
+			captureException(hub, errors.Wrap(err, "error sending revoke response to client"))
 			return
 		}
-
-		// everything went well, make sure to set status code 200
-		w.WriteHeader(http.StatusOK)
 
 		logrus.Debug("Server outgoing response (without headers for now):")
 		for s := range strings.SplitSeq(buf.String(), "\r\n") {
 			logrus.Debug(s)
 		}
-	}
+	})
 }
 
 func (s *Server) NewClient() *http.Client {
@@ -441,6 +460,10 @@ func (s *Server) NewClient() *http.Client {
 			ResponseHeaderTimeout: 5 * time.Second,
 		},
 	}
+}
+
+func (s *Server) SetClient(client *http.Client) {
+	s.client = client
 }
 
 func (s *Server) ErrorResponse(w http.ResponseWriter, err error) {
@@ -469,7 +492,7 @@ func (s *Server) ErrorResponse(w http.ResponseWriter, err error) {
 	}
 }
 
-func (s *Server) RequestToken(provider providers.Provider, params providers.TokenRequestParams) (*Token, error) {
+func (s *Server) RequestToken(provider providers.Provider, params providers.TokenRequestParams, events *GrafanaEvents, hub *sentry.Hub) (*Token, error) {
 	tr, ok := s.tokenRequesters[provider.Name()]
 	if !ok {
 		// this should not happen because all tokenrequesters are loaded when
@@ -477,10 +500,10 @@ func (s *Server) RequestToken(provider providers.Provider, params providers.Toke
 		return nil, errors.Errorf("Token requester for provider %s doesn't exist", provider.Name())
 	}
 
-	return tr.Request(params)
+	return tr.Request(params, events, hub)
 }
 
-func (s *Server) RevokeToken(provider providers.RevokeProvider, params TokenRevokeParams) (*http.Response, error) {
+func (s *Server) RevokeToken(provider providers.RevokeProvider, params TokenRevokeParams, events *GrafanaEvents, hub *sentry.Hub) (*http.Response, error) {
 	tr, ok := s.tokenRevokers[provider.Name()]
 	if !ok {
 		// this should not happen because all tokenrequesters are loaded when
@@ -488,7 +511,7 @@ func (s *Server) RevokeToken(provider providers.RevokeProvider, params TokenRevo
 		return nil, errors.Errorf("Token requester for provider %s doesn't exist", provider.Name())
 	}
 
-	return tr.Revoke(params)
+	return tr.Revoke(params, events, hub)
 }
 
 func (s *Server) GetTokenRequestParamsFromRequest(r *http.Request) (providers.TokenRequestParams, error) {
@@ -532,7 +555,11 @@ func (s *Server) GetTokenRevokeParamsFromRequest(r *http.Request) (TokenRevokePa
 		return TokenRevokeParams{}, errors.WithStack(err)
 	}
 
+	// client_id and client_secret can be in authorization header or in form values
+	// assume form values and then check authorization header
 	params := TokenRevokeParams{
+		ClientID:      r.Form.Get("client_id"),
+		ClientSecret:  r.Form.Get("client_secret"),
 		TokenTypeHint: r.Form.Get("token_type_hint"),
 		Token:         r.Form.Get("token"),
 		Request:       r,
