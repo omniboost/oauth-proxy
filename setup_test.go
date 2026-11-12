@@ -25,6 +25,18 @@ func TestMain(m *testing.M) {
 	var err error
 
 	mysql.SetLogger(log.Printf)
+
+	// the tests drop all tables: never run them against a non-local database
+	u, err := dburl.Parse(os.Getenv("DATABASE_URL"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	switch u.Hostname() {
+	case "localhost", "127.0.0.1", "::1":
+	default:
+		log.Fatalf("refusing to run tests against non-local database host %q", u.Hostname())
+	}
+
 	dbh, err = dburl.Open(os.Getenv("DATABASE_URL"))
 	if err != nil {
 		log.Fatal(err)
