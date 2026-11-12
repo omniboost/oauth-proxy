@@ -418,21 +418,23 @@ func (s *Server) NewProviderRevokeHandler(provider providers.RevokeProvider) htt
 			}
 		}
 
+		// pass on the status code of the provider, so the client knows when
+		// revoking failed
+		w.WriteHeader(resp.StatusCode)
+
 		// resp.Body -> buffer -> log
 		//           -> http.ResponseWriter -> response to client
 
 		var buf bytes.Buffer
 		rsp := io.MultiWriter(w, &buf)
 
-		// pipe response body to client
+		// pipe response body to client. The status code is already sent, so
+		// an error can't be returned to the client anymore
 		_, err = io.Copy(rsp, resp.Body)
 		if err != nil {
-			s.ErrorResponse(w, err)
+			logrus.Error("error sending revoke response to client: ", err)
 			return
 		}
-
-		// everything went well, make sure to set status code 200
-		w.WriteHeader(http.StatusOK)
 
 		logrus.Debug("Server outgoing response (without headers for now):")
 		for s := range strings.SplitSeq(buf.String(), "\r\n") {
