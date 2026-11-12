@@ -73,7 +73,7 @@ func TestRevokeTimeout(t *testing.T) {
 	r := httptest.NewRequest(http.MethodPost, prov.RevokeRoute(), nil)
 	done := make(chan error, 1)
 	go func() {
-		_, err := rv.Revoke(TokenRevokeParams{Token: "TOKEN", TokenTypeHint: "access_token", Request: r}, nil)
+		_, err := rv.Revoke(TokenRevokeParams{Token: "TOKEN", TokenTypeHint: "access_token", Request: r}, nil, nil)
 		done <- err
 	}()
 

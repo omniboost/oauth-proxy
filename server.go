@@ -370,7 +370,7 @@ func (s *Server) NewProviderRevokeHandler(provider providers.RevokeProvider) htt
 	// - send request to provider endpoint
 	// - return response
 
-	return s.logToGrafana(func(w http.ResponseWriter, r *http.Request, _ *GrafanaEvents) {
+	return s.logToGrafana(func(w http.ResponseWriter, r *http.Request, events *GrafanaEvents) {
 		defer r.Body.Close()
 
 		// every request gets its own sentry hub so tags don't leak into other
@@ -413,7 +413,7 @@ func (s *Server) NewProviderRevokeHandler(provider providers.RevokeProvider) htt
 		})
 
 		logrus.Debug("Revoking token")
-		resp, err := s.RevokeToken(provider, rrp, hub)
+		resp, err := s.RevokeToken(provider, rrp, events, hub)
 		if err != nil {
 			captureException(hub, err)
 			s.ErrorResponse(w, err)
@@ -503,7 +503,7 @@ func (s *Server) RequestToken(provider providers.Provider, params providers.Toke
 	return tr.Request(params, events, hub)
 }
 
-func (s *Server) RevokeToken(provider providers.RevokeProvider, params TokenRevokeParams, hub *sentry.Hub) (*http.Response, error) {
+func (s *Server) RevokeToken(provider providers.RevokeProvider, params TokenRevokeParams, events *GrafanaEvents, hub *sentry.Hub) (*http.Response, error) {
 	tr, ok := s.tokenRevokers[provider.Name()]
 	if !ok {
 		// this should not happen because all tokenrequesters are loaded when
@@ -511,7 +511,7 @@ func (s *Server) RevokeToken(provider providers.RevokeProvider, params TokenRevo
 		return nil, errors.Errorf("Token requester for provider %s doesn't exist", provider.Name())
 	}
 
-	return tr.Revoke(params, hub)
+	return tr.Revoke(params, events, hub)
 }
 
 func (s *Server) GetTokenRequestParamsFromRequest(r *http.Request) (providers.TokenRequestParams, error) {

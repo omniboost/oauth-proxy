@@ -75,24 +75,59 @@ func (events *GrafanaEvents) QueueRequestLog(r *http.Request, metrics httpsnoop.
 	})
 }
 
-// QueueTokenSavedEvent queues an event when a new refresh token
-// and/or access token is written to the database. Token values are never
-// logged.
-func (events *GrafanaEvents) QueueTokenSavedEvent(dbToken mysql.OauthToken, isNew, refreshTokenChanged, accessTokenChanged bool) {
-	if !isNew && !refreshTokenChanged && !accessTokenChanged {
+// Stream labels for secret reads and writes, used to count how often secrets
+// are read and written (IN-5149). Token values are never logged.
+const (
+	grafanaSecretReadLabels  = `{service="oauth-proxy", event="secret", operation="read"}`
+	grafanaSecretWriteLabels = `{service="oauth-proxy", event="secret", operation="write"}`
+)
+
+// QueueSecretRead queues an event when a token row is looked up in the
+// database, whether it's found or not. The lookup while saving a token is part
+// of the write and isn't counted.
+func (events *GrafanaEvents) QueueSecretRead(app, grantType string) {
+	events.queue(grafanaSecretReadLabels, logproto.Entry{
+		Timestamp: time.Now(),
+		Line:      "secret read for app " + app,
+		StructuredMetadata: []logproto.LabelAdapter{
+			{Name: "level", Value: "info"},
+			{Name: "app", Value: app},
+			{Name: "grant_type", Value: grantType},
+		},
+	})
+}
+
+// QueueSecretSaved queues an event when a new refresh token and/or access
+// token is written to the database, also when saving failed. Changes to only
+// e.g. the expiry don't count as a write.
+func (events *GrafanaEvents) QueueSecretSaved(dbToken mysql.OauthToken, refreshTokenChanged, accessTokenChanged bool) {
+	if !refreshTokenChanged && !accessTokenChanged {
 		return
 	}
 
-	events.queue(`{service="oauth-proxy", event="token_saved"}`, logproto.Entry{
+	events.queue(grafanaSecretWriteLabels, logproto.Entry{
 		Timestamp: time.Now(),
-		Line:      "token saved for app " + dbToken.App,
+		Line:      "secret saved for app " + dbToken.App,
 		StructuredMetadata: []logproto.LabelAdapter{
 			{Name: "level", Value: "info"},
 			{Name: "app", Value: dbToken.App},
 			{Name: "grant_type", Value: dbToken.GrantType},
-			{Name: "new_row", Value: strconv.FormatBool(isNew)},
 			{Name: "refresh_token_changed", Value: strconv.FormatBool(refreshTokenChanged)},
 			{Name: "access_token_changed", Value: strconv.FormatBool(accessTokenChanged)},
+		},
+	})
+}
+
+// QueueSecretRevoked queues one event per revoke that marks a token as revoked
+// in the database, also when that failed.
+func (events *GrafanaEvents) QueueSecretRevoked(app, grantType string) {
+	events.queue(grafanaSecretWriteLabels, logproto.Entry{
+		Timestamp: time.Now(),
+		Line:      "secret revoked for app " + app,
+		StructuredMetadata: []logproto.LabelAdapter{
+			{Name: "level", Value: "info"},
+			{Name: "app", Value: app},
+			{Name: "grant_type", Value: grantType},
 		},
 	})
 }

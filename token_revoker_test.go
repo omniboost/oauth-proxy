@@ -88,7 +88,7 @@ func TestRevokeRotatedRefreshToken(t *testing.T) {
 		Token:         "ORIGINAL_RT",
 		TokenTypeHint: "refresh_token",
 		Request:       r,
-	}, hub)
+	}, nil, hub)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,7 +165,7 @@ func TestRevokeClientCredentialsInForm(t *testing.T) {
 	}
 	rv := oauthproxy.NewTokenRevoker(dbh, prov)
 	rv.Start()
-	resp, err := rv.Revoke(rrp, nil)
+	resp, err := rv.Revoke(rrp, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -231,7 +231,7 @@ func TestRevokeWithoutTokenTypeHint(t *testing.T) {
 		}
 		rv := oauthproxy.NewTokenRevoker(dbh, prov)
 		rv.Start()
-		resp, err := rv.Revoke(rrp, nil)
+		resp, err := rv.Revoke(rrp, nil, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -285,7 +285,7 @@ func TestRevokeReleasesLockOnProviderFailure(t *testing.T) {
 			rv := oauthproxy.NewTokenRevoker(dbh, prov)
 			rv.Start()
 			r := httptest.NewRequest(http.MethodPost, prov.RevokeRoute(), nil)
-			resp, err := rv.Revoke(oauthproxy.TokenRevokeParams{ClientID: params.ClientID, ClientSecret: params.ClientSecret, Token: params.RefreshToken, TokenTypeHint: "refresh_token", Request: r}, nil)
+			resp, err := rv.Revoke(oauthproxy.TokenRevokeParams{ClientID: params.ClientID, ClientSecret: params.ClientSecret, Token: params.RefreshToken, TokenTypeHint: "refresh_token", Request: r}, nil, nil)
 			if resp != nil {
 				resp.Body.Close()
 				if resp.StatusCode != http.StatusBadRequest {
@@ -395,7 +395,7 @@ func TestRefreshAndRevokeSerialize(t *testing.T) {
 				go func() {
 					r := httptest.NewRequest(http.MethodPost, prov.RevokeRoute(), nil)
 					r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-					resp, err := rv.Revoke(oauthproxy.TokenRevokeParams{ClientID: params.ClientID, ClientSecret: params.ClientSecret, Token: params.RefreshToken, TokenTypeHint: "refresh_token", Request: r}, nil)
+					resp, err := rv.Revoke(oauthproxy.TokenRevokeParams{ClientID: params.ClientID, ClientSecret: params.ClientSecret, Token: params.RefreshToken, TokenTypeHint: "refresh_token", Request: r}, nil, nil)
 					if resp != nil {
 						resp.Body.Close()
 					}

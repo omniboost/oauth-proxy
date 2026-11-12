@@ -184,6 +184,7 @@ func (tr *TokenRequester) TokenRefreshAuthorizationCode(req TokenRequest) (*Toke
 	}()
 
 	dbToken, err := tr.AuthorizationTokenFromDB(trx, params)
+	req.events.QueueSecretRead(tr.provider.Name(), "authorization_code")
 	if errors.Cause(err) == sql.ErrNoRows {
 		// no results in db: request new token
 		logrus.Debugf("couldn't find refresh token in database, requesting new token (%s)", params.RefreshToken)
@@ -283,6 +284,7 @@ func (tr *TokenRequester) TokenRefreshPassword(req TokenRequest) (*Token, error)
 	}()
 
 	dbToken, err := tr.PasswordTokenFromDB(trx, params)
+	req.events.QueueSecretRead(tr.provider.Name(), "password")
 	if errors.Cause(err) == sql.ErrNoRows {
 		// no results in db: request new token
 		logrus.Debugf("couldn't find refresh token in database, requesting new token (%s)", params.Username)
@@ -362,6 +364,7 @@ func (tr *TokenRequester) TokenRefreshClientCredentials(req TokenRequest) (*Toke
 	}()
 
 	dbToken, err := tr.ClientCredentialsTokenFromDB(trx, params)
+	req.events.QueueSecretRead(tr.provider.Name(), "client_credentials")
 	if errors.Cause(err) == sql.ErrNoRows {
 		// no results in db: request new token
 		logrus.Debugf("couldn't find access token in database, requesting new token")
@@ -623,7 +626,6 @@ func (tr *TokenRequester) SaveAuthorizationToken(db mysql.DB, token *Token, para
 		token.Expiry = time.Now().Add(time.Duration(secs) * time.Second)
 	}
 
-	isNew := dbToken.ID == 0
 	prevRefreshTokenHash := dbToken.RefreshTokenHash.String()
 	prevAccessTokenHash := dbToken.AccessTokenHash.String()
 
@@ -635,11 +637,9 @@ func (tr *TokenRequester) SaveAuthorizationToken(db mysql.DB, token *Token, para
 	dbToken.ExpiresAt = sql.NullTime{Time: token.Expiry, Valid: true}
 	dbToken.UpdatedAt = time.Now()
 	err = dbToken.Save(context.Background(), db)
-	if err == nil {
-		events.QueueTokenSavedEvent(*dbToken, isNew,
-			dbToken.RefreshTokenHash.String() != prevRefreshTokenHash,
-			dbToken.AccessTokenHash.String() != prevAccessTokenHash)
-	}
+	events.QueueSecretSaved(*dbToken,
+		dbToken.RefreshTokenHash.String() != prevRefreshTokenHash,
+		dbToken.AccessTokenHash.String() != prevAccessTokenHash)
 	return *dbToken, err
 }
 
@@ -694,7 +694,6 @@ func (tr *TokenRequester) SavePasswordToken(db mysql.DB, token *Token, params pr
 		token.Expiry = time.Now().Add(time.Duration(secs) * time.Second)
 	}
 
-	isNew := dbToken.ID == 0
 	prevRefreshTokenHash := dbToken.RefreshTokenHash.String()
 	prevAccessTokenHash := dbToken.AccessTokenHash.String()
 
@@ -706,11 +705,9 @@ func (tr *TokenRequester) SavePasswordToken(db mysql.DB, token *Token, params pr
 	dbToken.ExpiresAt = sql.NullTime{Time: token.Expiry, Valid: true}
 	dbToken.UpdatedAt = time.Now()
 	err = dbToken.Save(context.Background(), db)
-	if err == nil {
-		events.QueueTokenSavedEvent(*dbToken, isNew,
-			dbToken.RefreshTokenHash.String() != prevRefreshTokenHash,
-			dbToken.AccessTokenHash.String() != prevAccessTokenHash)
-	}
+	events.QueueSecretSaved(*dbToken,
+		dbToken.RefreshTokenHash.String() != prevRefreshTokenHash,
+		dbToken.AccessTokenHash.String() != prevAccessTokenHash)
 	return *dbToken, err
 }
 
@@ -759,7 +756,6 @@ func (tr *TokenRequester) SaveClientCredentialsToken(db mysql.DB, token *Token, 
 		token.Expiry = time.Now().Add(time.Duration(secs) * time.Second)
 	}
 
-	isNew := dbToken.ID == 0
 	prevRefreshTokenHash := dbToken.RefreshTokenHash.String()
 	prevAccessTokenHash := dbToken.AccessTokenHash.String()
 
@@ -771,11 +767,9 @@ func (tr *TokenRequester) SaveClientCredentialsToken(db mysql.DB, token *Token, 
 	dbToken.ExpiresAt = sql.NullTime{Time: token.Expiry, Valid: true}
 	dbToken.UpdatedAt = time.Now()
 	err = dbToken.Save(context.Background(), db)
-	if err == nil {
-		events.QueueTokenSavedEvent(*dbToken, isNew,
-			dbToken.RefreshTokenHash.String() != prevRefreshTokenHash,
-			dbToken.AccessTokenHash.String() != prevAccessTokenHash)
-	}
+	events.QueueSecretSaved(*dbToken,
+		dbToken.RefreshTokenHash.String() != prevRefreshTokenHash,
+		dbToken.AccessTokenHash.String() != prevAccessTokenHash)
 	return *dbToken, err
 }
 

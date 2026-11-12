@@ -69,13 +69,13 @@ func (tr *TokenRevoker) Listen() {
 	}
 }
 
-func (tr *TokenRevoker) Revoke(params TokenRevokeParams, hub *sentry.Hub) (*http.Response, error) {
-	request := tr.NewTokenRevoke(params, hub)
+func (tr *TokenRevoker) Revoke(params TokenRevokeParams, events *GrafanaEvents, hub *sentry.Hub) (*http.Response, error) {
+	request := tr.NewTokenRevoke(params, events, hub)
 	tr.requests <- request
 
 	// block on both channels
 	// this must keep waiting until the worker is done: the worker writes to
-	// hub and the caller sends its events after this returns
+	// events and hub and the caller sends them after this returns
 	result := <-request.result
 	close(request.result)
 	return result.response, errors.WithStack(result.err)
@@ -112,6 +112,7 @@ func (tr *TokenRevoker) revoke(request RevokeRequest) (*http.Response, error) {
 		// row lock until the provider call and expiration update are complete.
 		defer trx.Rollback()
 		dbToken, err = mysql.OauthTokenByAppClientIDClientSecretRefreshTokenOrOriginalRefreshToken(ctx, trx, tr.provider.Name(), request.params.ClientID, request.params.ClientSecret, token)
+		request.events.QueueSecretRead(tr.provider.Name(), "")
 		if err != nil && errors.Cause(err) != sql.ErrNoRows {
 			return nil, errors.WithStack(err)
 		}
@@ -161,11 +162,11 @@ func (tr *TokenRevoker) revoke(request RevokeRequest) (*http.Response, error) {
 	if resp.StatusCode == http.StatusOK && request.params.Token != "" {
 		if dbToken != nil {
 			err = mysql.ExpireRefreshTokenByID(ctx, trx, dbToken.ID, time.Now())
-			if err != nil {
-				resp.Body.Close()
-				return nil, errors.WithStack(err)
+			if err == nil {
+				err = trx.Commit()
 			}
-			if err := trx.Commit(); err != nil {
+			request.events.QueueSecretRevoked(dbToken.App, dbToken.GrantType)
+			if err != nil {
 				resp.Body.Close()
 				return nil, errors.WithStack(err)
 			}
@@ -173,6 +174,8 @@ func (tr *TokenRevoker) revoke(request RevokeRequest) (*http.Response, error) {
 			// Match the access token at update time, so a concurrent rotation
 			// cannot be overwritten or have its new access token expired.
 			err := mysql.ExpireAccessTokensByAppClientIDAccessToken(ctx, tr.db, tr.provider.Name(), request.params.ClientID, request.params.Token, time.Now())
+			// the grant type isn't known without reading the rows
+			request.events.QueueSecretRevoked(tr.provider.Name(), "")
 			if err != nil {
 				resp.Body.Close()
 				return nil, errors.WithStack(err)
@@ -192,6 +195,7 @@ func (tr *TokenRevoker) handleResults(request RevokeRequest, resp *http.Response
 }
 
 type RevokeRequest struct {
+	events *GrafanaEvents
 	hub    *sentry.Hub
 	params TokenRevokeParams
 	result chan TokenRevokeResult
@@ -211,8 +215,9 @@ type TokenRevokeParams struct {
 	Request       *http.Request
 }
 
-func (tr *TokenRevoker) NewTokenRevoke(params TokenRevokeParams, hub *sentry.Hub) RevokeRequest {
+func (tr *TokenRevoker) NewTokenRevoke(params TokenRevokeParams, events *GrafanaEvents, hub *sentry.Hub) RevokeRequest {
 	return RevokeRequest{
+		events: events,
 		hub:    hub,
 		params: params,
 		result: make(chan TokenRevokeResult, 1),

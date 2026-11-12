@@ -29,7 +29,7 @@ func TestQueueGrafanaEventDropsWhenFull(t *testing.T) {
 	const limit = 10
 	events := setupGrafanaEventsTest(t, limit, "http://loki.invalid/push")
 	for i := 0; i < 1000; i++ {
-		events.QueueTokenSavedEvent(mysql.OauthToken{App: "TEST"}, true, true, true)
+		events.QueueSecretSaved(mysql.OauthToken{App: "TEST"}, true, true)
 	}
 	if got := len(events.events); got != limit {
 		t.Fatalf("expected %d events, got %d", limit, got)
@@ -40,11 +40,11 @@ func TestQueueGrafanaEventSkipped(t *testing.T) {
 	events := setupGrafanaEventsTest(t, 10, "http://loki.invalid/push")
 
 	// nothing changed
-	events.QueueTokenSavedEvent(mysql.OauthToken{App: "TEST"}, false, false, false)
+	events.QueueSecretSaved(mysql.OauthToken{App: "TEST"}, false, false)
 
 	// grafana not configured
 	GRAFANA_LOKI_URL = ""
-	events.QueueTokenSavedEvent(mysql.OauthToken{App: "TEST"}, true, true, true)
+	events.QueueSecretSaved(mysql.OauthToken{App: "TEST"}, true, true)
 	events.QueueRequestLog(httptest.NewRequest(http.MethodPost, "/TEST/oauth2/token", nil), httpsnoop.Metrics{Code: http.StatusOK})
 
 	if got := len(events.events); got != 0 {
@@ -80,8 +80,8 @@ func TestPushEventsToGrafanaGroupsStreams(t *testing.T) {
 	}
 
 	r := httptest.NewRequest(http.MethodPost, "/TEST/oauth2/token", nil)
-	events.QueueTokenSavedEvent(mysql.OauthToken{App: "A"}, true, true, true)
-	events.QueueTokenSavedEvent(mysql.OauthToken{App: "B"}, false, true, false)
+	events.QueueSecretSaved(mysql.OauthToken{App: "A"}, true, true)
+	events.QueueSecretSaved(mysql.OauthToken{App: "B"}, true, false)
 	events.QueueRequestLog(r, httpsnoop.Metrics{Code: http.StatusBadRequest})
 	if err := s.PushEventsToGrafana(events); err != nil {
 		t.Fatal(err)
@@ -93,10 +93,10 @@ func TestPushEventsToGrafanaGroupsStreams(t *testing.T) {
 			t.Fatalf("expected 2 streams, got %d", len(push.Streams))
 		}
 		tokens, requests := push.Streams[0], push.Streams[1]
-		if tokens.Labels != `{service="oauth-proxy", event="token_saved"}` || len(tokens.Entries) != 2 {
+		if tokens.Labels != grafanaSecretWriteLabels || len(tokens.Entries) != 2 {
 			t.Errorf("unexpected token stream: %s with %d entries", tokens.Labels, len(tokens.Entries))
 		}
-		if tokens.Entries[0].Line != "token saved for app A" || tokens.Entries[1].Line != "token saved for app B" {
+		if tokens.Entries[0].Line != "secret saved for app A" || tokens.Entries[1].Line != "secret saved for app B" {
 			t.Errorf("token events out of order: %q, %q", tokens.Entries[0].Line, tokens.Entries[1].Line)
 		}
 		if requests.Labels != `{service="oauth-proxy"}` || len(requests.Entries) != 1 {
@@ -178,7 +178,7 @@ func TestGrafanaEventsStayWithTheirRequest(t *testing.T) {
 		select {
 		case req := <-tr.requests:
 			requests[req.params.ClientID] = req
-			req.events.QueueTokenSavedEvent(mysql.OauthToken{App: req.params.ClientID}, true, true, true)
+			req.events.QueueSecretSaved(mysql.OauthToken{App: req.params.ClientID}, true, true)
 		case <-time.After(2 * time.Second):
 			t.Fatal("token request did not reach worker")
 		}
@@ -192,8 +192,8 @@ func TestGrafanaEventsStayWithTheirRequest(t *testing.T) {
 			}
 			for _, stream := range push.Streams {
 				want := "/" + id
-				if stream.Labels == `{service="oauth-proxy", event="token_saved"}` {
-					want = "token saved for app " + id
+				if stream.Labels == grafanaSecretWriteLabels {
+					want = "secret saved for app " + id
 				}
 				if len(stream.Entries) != 1 || stream.Entries[0].Line != want {
 					t.Fatalf("request %s received another request's events: %v", id, stream.Entries)
