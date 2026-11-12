@@ -15,6 +15,11 @@ import (
 	"golang.org/x/oauth2"
 )
 
+// tokenRevokeTimeout limits a revoke request to the provider. Revoke requests
+// are handled one at a time per provider, so a hanging provider would block
+// all other revoke requests for that provider.
+var tokenRevokeTimeout = 10 * time.Second
+
 func NewTokenRevoker(db *sql.DB, provider providers.RevokeProvider) *TokenRevoker {
 	// Create a new context
 	ctx := context.Background()
@@ -80,7 +85,7 @@ func (tr *TokenRevoker) revoke(request RevokeRequest) (*http.Response, error) {
 	}
 
 	// custom http client
-	client := &http.Client{}
+	client := &http.Client{Timeout: tokenRevokeTimeout}
 	rt := NewRoundTripperWithSave(http.DefaultTransport)
 	client.Transport = rt
 	ctx := context.WithValue(context.TODO(), oauth2.HTTPClient, client)

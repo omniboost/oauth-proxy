@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 )
 
 type revokeHandlerTestProvider struct {
@@ -42,5 +43,39 @@ func TestRevokeHandlerPassesProviderStatusCode(t *testing.T) {
 	}
 	if body := w.Body.String(); body != `{"error":"invalid_client"}` {
 		t.Errorf("expected provider body, got %q", body)
+	}
+}
+
+func TestRevokeTimeout(t *testing.T) {
+	release := make(chan struct{})
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-release
+	}))
+	// unblock the provider before Close waits for its handler
+	defer provider.Close()
+	defer close(release)
+	prov := revokeHandlerTestProvider{revokeURL: provider.URL}
+
+	oldTimeout := tokenRevokeTimeout
+	tokenRevokeTimeout = 100 * time.Millisecond
+	defer func() { tokenRevokeTimeout = oldTimeout }()
+
+	rv := NewTokenRevoker(nil, prov)
+	rv.Start()
+
+	r := httptest.NewRequest(http.MethodPost, prov.RevokeRoute(), nil)
+	done := make(chan error, 1)
+	go func() {
+		_, err := rv.Revoke(TokenRevokeParams{Token: "TOKEN", TokenTypeHint: "access_token", Request: r})
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Error("expected timeout error")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("revoke didn't time out")
 	}
 }
