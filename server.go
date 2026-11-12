@@ -546,7 +546,11 @@ func (s *Server) GetTokenRevokeParamsFromRequest(r *http.Request) (TokenRevokePa
 		return TokenRevokeParams{}, errors.WithStack(err)
 	}
 
+	// client_id and client_secret can be in authorization header or in form values
+	// assume form values and then check authorization header
 	params := TokenRevokeParams{
+		ClientID:      r.Form.Get("client_id"),
+		ClientSecret:  r.Form.Get("client_secret"),
 		TokenTypeHint: r.Form.Get("token_type_hint"),
 		Token:         r.Form.Get("token"),
 		Request:       r,

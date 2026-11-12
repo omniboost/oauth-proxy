@@ -100,3 +100,74 @@ func TestRevokeRotatedRefreshToken(t *testing.T) {
 		t.Error("expected refresh token to be marked as revoked in db")
 	}
 }
+
+func TestRevokeClientCredentialsInForm(t *testing.T) {
+	received := make(chan url.Values, 1)
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Error(err)
+		}
+		received <- r.PostForm
+	}))
+	defer provider.Close()
+	prov := RevokeTestProvider{revokeURL: provider.URL}
+
+	params := providers.TokenRequestParams{
+		ClientID:     "REVOKE_FORM",
+		ClientSecret: "REVOKE_FORM_SECRET",
+		RefreshToken: "FORM_RT",
+	}
+	tr := oauthproxy.NewTokenRequester(dbh, prov)
+	dbToken, err := tr.SaveAuthorizationToken(dbh, &oauthproxy.Token{
+		Token: &oauth2.Token{
+			AccessToken:  "FORM_AT",
+			RefreshToken: "FORM_RT",
+			Expiry:       time.Now().Add(time.Hour),
+			TokenType:    "Bearer",
+		},
+		Raw: map[string]json.RawMessage{},
+	}, params, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// client credentials in the form values instead of the authorization header
+	form := url.Values{
+		"token":           {"FORM_RT"},
+		"token_type_hint": {"refresh_token"},
+		"client_id":       {params.ClientID},
+		"client_secret":   {params.ClientSecret},
+	}
+	r := httptest.NewRequest(http.MethodPost, prov.RevokeRoute(), strings.NewReader(form.Encode()))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	srv := &oauthproxy.Server{}
+	rrp, err := srv.GetTokenRevokeParamsFromRequest(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rv := oauthproxy.NewTokenRevoker(dbh, prov)
+	rv.Start()
+	resp, err := rv.Revoke(rrp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	select {
+	case got := <-received:
+		if got.Get("client_id") != params.ClientID || got.Get("client_secret") != params.ClientSecret {
+			t.Errorf("expected client credentials to be sent to provider, got %v", got)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("provider revoke endpoint not called")
+	}
+
+	row, err := mysql.OauthTokenByID(context.Background(), dbh, dbToken.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !row.RefreshTokenExpiresAt.Valid {
+		t.Error("expected refresh token to be marked as revoked in db")
+	}
+}

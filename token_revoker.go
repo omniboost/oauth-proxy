@@ -106,6 +106,13 @@ func (tr *TokenRevoker) revoke(request RevokeRequest) (*http.Response, error) {
 		"token_type_hint": []string{request.params.TokenTypeHint},
 	}
 
+	// client credentials from the form values (instead of the authorization
+	// header, which is passed on below) have to be sent to the provider too
+	if request.params.Request.Header.Get("Authorization") == "" && request.params.ClientID != "" {
+		data.Set("client_id", request.params.ClientID)
+		data.Set("client_secret", request.params.ClientSecret)
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, i.RevokeURL(), strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, errors.WithStack(err)
