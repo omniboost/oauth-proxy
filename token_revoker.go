@@ -101,11 +101,27 @@ func (tr *TokenRevoker) revoke(request RevokeRequest) (*http.Response, error) {
 	token := request.params.Token
 	hint := request.params.TokenTypeHint
 	var dbToken *mysql.OauthToken
+	var trx *sql.Tx
 	if (hint == "refresh_token" || hint == "") && token != "" {
 		var err error
-		dbToken, err = mysql.OauthTokenByAppClientIDClientSecretRefreshTokenOrOriginalRefreshToken(ctx, tr.db, tr.provider.Name(), request.params.ClientID, request.params.ClientSecret, token)
+		trx, err = tr.db.BeginTx(ctx, nil)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		// The lookup uses FOR UPDATE, just like the refresh worker. Keep its
+		// row lock until the provider call and expiration update are complete.
+		defer trx.Rollback()
+		dbToken, err = mysql.OauthTokenByAppClientIDClientSecretRefreshTokenOrOriginalRefreshToken(ctx, trx, tr.provider.Name(), request.params.ClientID, request.params.ClientSecret, token)
 		if err != nil && errors.Cause(err) != sql.ErrNoRows {
 			return nil, errors.WithStack(err)
+		}
+		if dbToken == nil {
+			// Release the connection before the access-token fallback, which
+			// uses tr.db (the server may have only one connection available).
+			if err := trx.Rollback(); err != nil {
+				return nil, errors.WithStack(err)
+			}
+			trx = nil
 		}
 		if dbToken != nil && dbToken.RefreshToken != "" {
 			token = string(dbToken.RefreshToken)
@@ -144,26 +160,22 @@ func (tr *TokenRevoker) revoke(request RevokeRequest) (*http.Response, error) {
 
 	if resp.StatusCode == http.StatusOK && request.params.Token != "" {
 		if dbToken != nil {
-			expiresAt := time.Now()
-			dbToken.RefreshTokenExpiresAt = sql.NullTime{Time: expiresAt, Valid: true}
-			err = dbToken.Save(ctx, tr.db)
+			err = mysql.ExpireRefreshTokenByID(ctx, trx, dbToken.ID, time.Now())
 			if err != nil {
+				resp.Body.Close()
+				return nil, errors.WithStack(err)
+			}
+			if err := trx.Commit(); err != nil {
+				resp.Body.Close()
 				return nil, errors.WithStack(err)
 			}
 		} else if hint == "access_token" || hint == "" {
-			tokens, err := mysql.OauthTokensByAppClientIDAccessToken(ctx, tr.db, tr.provider.Name(), request.params.ClientID, request.params.Token)
+			// Match the access token at update time, so a concurrent rotation
+			// cannot be overwritten or have its new access token expired.
+			err := mysql.ExpireAccessTokensByAppClientIDAccessToken(ctx, tr.db, tr.provider.Name(), request.params.ClientID, request.params.Token, time.Now())
 			if err != nil {
+				resp.Body.Close()
 				return nil, errors.WithStack(err)
-			}
-
-			// expire tokens
-			for _, t := range tokens {
-				expiresAt := time.Now()
-				t.ExpiresAt = sql.NullTime{Time: expiresAt, Valid: true}
-				err := t.Save(ctx, tr.db)
-				if err != nil {
-					return nil, errors.WithStack(err)
-				}
 			}
 		}
 	}

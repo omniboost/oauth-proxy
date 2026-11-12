@@ -157,7 +157,7 @@ func (tr *TokenRequester) CodeExchange(req TokenRequest) (*Token, error) {
 func (tr *TokenRequester) IncrementNrOfSubsequentProviderErrors(db mysql.DB, token *mysql.OauthToken) error {
 	token.NrOfSubsequentProviderErrors++
 	token.UpdatedAt = time.Now()
-	return token.Save(context.Background(), db)
+	return mysql.IncrementTokenProviderErrors(context.Background(), db, token.ID, token.UpdatedAt)
 }
 
 func (tr *TokenRequester) TokenRefreshAuthorizationCode(req TokenRequest) (*Token, error) {
