@@ -277,6 +277,16 @@ func (s *Server) NewProviderTokenHandler(provider providers.Provider) http.Handl
 	return s.logToGrafana(func(w http.ResponseWriter, r *http.Request, events *GrafanaEvents) {
 		defer r.Body.Close()
 
+		// every request gets its own sentry hub so tags don't leak into other
+		// (concurrent or subsequent) requests
+		hub := sentry.CurrentHub().Clone()
+		captureException := func(err error) {
+			hub.CaptureException(err)
+			// on Lambda the execution environment is frozen after the response
+			// is returned, so the event has to be sent before the handler returns
+			hub.Flush(2 * time.Second)
+		}
+
 		// Get the Lambda runtime context (aws-lambda-go/lambdacontext)
 		if lc, ok := core.GetRuntimeContextFromContextV2(r.Context()); ok && lc != nil {
 			log.Printf("awsRequestID=%s, invokedFunctionArn=%s", lc.AwsRequestID, lc.InvokedFunctionArn)
@@ -294,19 +304,19 @@ func (s *Server) NewProviderTokenHandler(provider providers.Provider) http.Handl
 			logrus.Debug(s)
 		}
 		if err != nil {
-			sentry.CaptureException(err)
+			captureException(err)
 			s.ErrorResponse(w, err)
 			return
 		}
 
 		trp, err := s.GetTokenRequestParamsFromRequest(r)
 		if err != nil {
-			sentry.CaptureException(err)
+			captureException(err)
 			s.ErrorResponse(w, err)
 			return
 		}
 
-		sentry.ConfigureScope(func(scope *sentry.Scope) {
+		hub.ConfigureScope(func(scope *sentry.Scope) {
 			scope.SetTag("Provider", provider.Name())
 			scope.SetTag("ClientID", trp.ClientID)
 			scope.SetExtra("ClientSecret", trp.ClientSecret)
@@ -327,7 +337,7 @@ func (s *Server) NewProviderTokenHandler(provider providers.Provider) http.Handl
 
 		token, err := s.RequestToken(provider, trp, events)
 		if err != nil {
-			sentry.CaptureException(err)
+			captureException(err)
 			s.ErrorResponse(w, err)
 			return
 		}
