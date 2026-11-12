@@ -2,6 +2,7 @@ package oauthproxy
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -53,7 +54,7 @@ func TestSentryScopePerRequest(t *testing.T) {
 	s := &Server{client: &http.Client{Timeout: time.Second}, tokenRequesters: map[string]*TokenRequester{}}
 	handler := s.NewProviderTokenHandler(provider)
 
-	r := httptest.NewRequest(http.MethodPost, "/TEST/oauth2/token", strings.NewReader("client_id=A&refresh_token=SECRET"))
+	r := httptest.NewRequest(http.MethodPost, "/TEST/oauth2/token", strings.NewReader("client_id=A&client_secret=SECRET&refresh_token=SECRET&code=SECRET&code_verifier=SECRET"))
 	handler.ServeHTTP(httptest.NewRecorder(), r)
 
 	// invalid content type: fails before the sentry tags are set
@@ -71,6 +72,18 @@ func TestSentryScopePerRequest(t *testing.T) {
 	}
 	if got := transport.events[0].Tags["ClientID"]; got != "A" {
 		t.Errorf("expected ClientID tag A on first event, got %q", got)
+	}
+	for _, e := range transport.events {
+		for k, v := range e.Tags {
+			if strings.Contains(v, "SECRET") {
+				t.Errorf("secret sent to sentry in tag %s", k)
+			}
+		}
+		for k, v := range e.Extra {
+			if strings.Contains(fmt.Sprint(v), "SECRET") {
+				t.Errorf("secret sent to sentry in extra %s", k)
+			}
+		}
 	}
 	for _, tag := range []string{"Provider", "ClientID", "RefreshToken"} {
 		if got, ok := transport.events[1].Tags[tag]; ok {

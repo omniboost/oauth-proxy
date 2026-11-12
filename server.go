@@ -317,13 +317,11 @@ func (s *Server) NewProviderTokenHandler(provider providers.Provider) http.Handl
 		}
 
 		hub.ConfigureScope(func(scope *sentry.Scope) {
+			// never send secrets (client secret, tokens, code, code verifier)
+			// to sentry: the TokenID tag identifies the database row instead
 			scope.SetTag("Provider", provider.Name())
 			scope.SetTag("ClientID", trp.ClientID)
-			scope.SetExtra("ClientSecret", trp.ClientSecret)
-			scope.SetTag("RefreshToken", trp.RefreshToken)
-			scope.SetExtra("Code", trp.Code)
 			scope.SetExtra("RedirectURL", trp.RedirectURL)
-			scope.SetExtra("CodeVerifier", trp.CodeVerifier)
 		})
 
 		// use reqBody.RefreshToken, reqBody.ClientID & reqBody.ClientSecret to
@@ -335,7 +333,7 @@ func (s *Server) NewProviderTokenHandler(provider providers.Provider) http.Handl
 		// Update: can't do that because I don't have access to oauth2.Token.raw
 		// Only Token.Extra(string)
 
-		token, err := s.RequestToken(provider, trp, events)
+		token, err := s.RequestToken(provider, trp, events, hub)
 		if err != nil {
 			captureException(err)
 			s.ErrorResponse(w, err)
@@ -483,7 +481,7 @@ func (s *Server) ErrorResponse(w http.ResponseWriter, err error) {
 	}
 }
 
-func (s *Server) RequestToken(provider providers.Provider, params providers.TokenRequestParams, events *GrafanaEvents) (*Token, error) {
+func (s *Server) RequestToken(provider providers.Provider, params providers.TokenRequestParams, events *GrafanaEvents, hub *sentry.Hub) (*Token, error) {
 	tr, ok := s.tokenRequesters[provider.Name()]
 	if !ok {
 		// this should not happen because all tokenrequesters are loaded when
@@ -491,7 +489,7 @@ func (s *Server) RequestToken(provider providers.Provider, params providers.Toke
 		return nil, errors.Errorf("Token requester for provider %s doesn't exist", provider.Name())
 	}
 
-	return tr.Request(params, events)
+	return tr.Request(params, events, hub)
 }
 
 func (s *Server) RevokeToken(provider providers.RevokeProvider, params TokenRevokeParams) (*http.Response, error) {

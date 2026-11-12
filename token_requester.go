@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/getsentry/sentry-go"
 	"github.com/lytics/logrus"
 	"github.com/omniboost/oauth-proxy/mysql"
 	"github.com/omniboost/oauth-proxy/providers"
@@ -97,7 +99,7 @@ func (tr *TokenRequester) CodeExchange(req TokenRequest) (*Token, error) {
 	t, err := provider.Exchange(ctx, params, opts...)
 	token := &Token{Token: t, Raw: map[string]json.RawMessage{}}
 	if err != nil {
-		e := errors.Wrapf(err, "something went wrong exchanging code (%s)", params.Code)
+		e := errors.Wrap(err, "something went wrong exchanging code")
 		return token, e
 	}
 
@@ -139,6 +141,7 @@ func (tr *TokenRequester) CodeExchange(req TokenRequest) (*Token, error) {
 	if err != nil {
 		return token, err
 	}
+	req.setSentryTokenID(dbToken.ID)
 
 	// return the immutable original refresh token to the caller instead of
 	// the current refresh token. The current refresh token changes on every
@@ -193,10 +196,11 @@ func (tr *TokenRequester) TokenRefreshAuthorizationCode(req TokenRequest) (*Toke
 		logrus.Debugf("sending new token to requester (%s)", params.RefreshToken)
 		return token, errors.WithStack(err)
 	} else if err != nil {
-		e := errors.Wrapf(err, "error retrieving token from database (%s): %s", params.RefreshToken, err)
+		e := errors.Wrapf(err, "error retrieving token from database: %s", err)
 		return token, e
 	} else {
 		logrus.Debugf("found existing token in database (%s)", params.RefreshToken)
+		req.setSentryTokenID(dbToken.ID)
 	}
 
 	// existing token, check if still valid
@@ -295,6 +299,7 @@ func (tr *TokenRequester) TokenRefreshPassword(req TokenRequest) (*Token, error)
 		return token, e
 	} else {
 		logrus.Debugf("found existing token in database (%s)", params.RefreshToken)
+		req.setSentryTokenID(dbToken.ID)
 	}
 
 	// existing token, check if still valid
@@ -373,6 +378,7 @@ func (tr *TokenRequester) TokenRefreshClientCredentials(req TokenRequest) (*Toke
 		return token, e
 	} else {
 		logrus.Debugf("found existing token in database (%s)", dbToken.AccessToken)
+		req.setSentryTokenID(dbToken.ID)
 	}
 
 	// existing token, check if still valid
@@ -418,24 +424,25 @@ func (tr *TokenRequester) Stop() {
 	// ??
 }
 
-func (tr *TokenRequester) Request(params providers.TokenRequestParams, events *GrafanaEvents) (*Token, error) {
-	request := tr.NewTokenRequest(params, events)
+func (tr *TokenRequester) Request(params providers.TokenRequestParams, events *GrafanaEvents, hub *sentry.Hub) (*Token, error) {
+	request := tr.NewTokenRequest(params, events, hub)
 	tr.requests <- request
 
 	// block on both channels
 	// this must keep waiting until the worker is done: the worker writes to
-	// events and the caller sends them to grafana after this returns. Returning
+	// events and hub and the caller sends them after this returns. Returning
 	// early (e.g. on a timeout) would cause a data race on events.
 	result := <-request.result
 	close(request.result)
 	return result.token, errors.WithStack(result.err)
 }
 
-func (tr *TokenRequester) NewTokenRequest(params providers.TokenRequestParams, events *GrafanaEvents) TokenRequest {
+func (tr *TokenRequester) NewTokenRequest(params providers.TokenRequestParams, events *GrafanaEvents, hub *sentry.Hub) TokenRequest {
 	return TokenRequest{
 		params: params,
 		result: make(chan TokenRequestResult, 1),
 		events: events,
+		hub:    hub,
 	}
 }
 
@@ -785,14 +792,14 @@ func (tr *TokenRequester) fetchAndSaveNewAuthorizationToken(db mysql.DB, params 
 	t, err := tr.FetchNewTokenAuthorizationCode(params)
 	token := &Token{Token: t, Raw: map[string]json.RawMessage{}}
 	if err != nil {
-		e := errors.Wrapf(err, "something went wrong fetching new token (%s): %s", params.RefreshToken, err)
+		e := errors.Wrapf(err, "something went wrong fetching new token: %s", err)
 		return token, e
 	}
 
 	logrus.Debugf("saving new token to database (%s)", params.RefreshToken)
 	dbToken, err := tr.SaveAuthorizationToken(db, token, params, events)
 	if err != nil {
-		e := errors.Wrapf(err, "something went wrong saving a new token to the database (%s): %s", params.RefreshToken, err)
+		e := errors.Wrapf(err, "something went wrong saving a new token to the database: %s", err)
 		return token, e
 	}
 
@@ -834,7 +841,7 @@ func (tr *TokenRequester) fetchAndSaveNewClientCredentialsToken(db mysql.DB, par
 	logrus.Debugf("saving new token to database (%s)", token.AccessToken)
 	_, err = tr.SaveClientCredentialsToken(db, token, params, events)
 	if err != nil {
-		e := errors.Wrapf(err, "something went wrong saving a new token to the database (%s): %s", token.AccessToken, err)
+		e := errors.Wrapf(err, "something went wrong saving a new token to the database: %s", err)
 		return token, e
 	}
 
@@ -843,8 +850,20 @@ func (tr *TokenRequester) fetchAndSaveNewClientCredentialsToken(db mysql.DB, par
 
 type TokenRequest struct {
 	events *GrafanaEvents
+	hub    *sentry.Hub
 	params providers.TokenRequestParams
 	result chan TokenRequestResult
+}
+
+// setSentryTokenID tags the request's sentry events with the database id of
+// the token, so errors can be traced to a row without sending secrets
+func (req TokenRequest) setSentryTokenID(id int) {
+	if req.hub == nil || id == 0 {
+		return
+	}
+	req.hub.ConfigureScope(func(scope *sentry.Scope) {
+		scope.SetTag("TokenID", strconv.Itoa(id))
+	})
 }
 
 type TokenRequestResult struct {

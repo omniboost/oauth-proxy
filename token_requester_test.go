@@ -155,7 +155,7 @@ func TestTokenExpired(t *testing.T) {
 		return
 	}
 
-	tokenRequest := tr.NewTokenRequest(params, nil)
+	tokenRequest := tr.NewTokenRequest(params, nil, nil)
 	newToken, err := tr.TokenRefresh(tokenRequest)
 	if err != nil {
 		t.Error(err)
@@ -223,7 +223,7 @@ func TestTokenRefreshParallel(t *testing.T) {
 	// create token requests
 	requests := make([]oauthproxy.TokenRequest, parallel)
 	for i := 0; i < parallel; i++ {
-		requests[i] = tr.NewTokenRequest(params, nil)
+		requests[i] = tr.NewTokenRequest(params, nil, nil)
 	}
 
 	// execute token requests parallel
