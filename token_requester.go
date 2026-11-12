@@ -135,7 +135,7 @@ func (tr *TokenRequester) CodeExchange(req TokenRequest) (*Token, error) {
 		return token, errors.WithStack(err)
 	}
 
-	dbToken, err := tr.SaveAuthorizationToken(tr.db, token, params)
+	dbToken, err := tr.SaveAuthorizationToken(tr.db, token, params, req.events)
 	if err != nil {
 		return token, err
 	}
@@ -185,7 +185,7 @@ func (tr *TokenRequester) TokenRefreshAuthorizationCode(req TokenRequest) (*Toke
 	if errors.Cause(err) == sql.ErrNoRows {
 		// no results in db: request new token
 		logrus.Debugf("couldn't find refresh token in database, requesting new token (%s)", params.RefreshToken)
-		token, err = tr.fetchAndSaveNewAuthorizationToken(trx, params)
+		token, err = tr.fetchAndSaveNewAuthorizationToken(trx, params, req.events)
 		if err != nil {
 			return token, errors.WithStack(err)
 		}
@@ -225,7 +225,7 @@ func (tr *TokenRequester) TokenRefreshAuthorizationCode(req TokenRequest) (*Toke
 	if params.CodeVerifier == "" && dbToken.CodeVerifier != "" {
 		params.CodeVerifier = dbToken.CodeVerifier
 	}
-	token, err = tr.fetchAndSaveNewAuthorizationToken(trx, params)
+	token, err = tr.fetchAndSaveNewAuthorizationToken(trx, params, req.events)
 	if err != nil {
 		// check if we could find the token from the request in the db
 		if dbToken.ID != 0 {
@@ -283,7 +283,7 @@ func (tr *TokenRequester) TokenRefreshPassword(req TokenRequest) (*Token, error)
 	if errors.Cause(err) == sql.ErrNoRows {
 		// no results in db: request new token
 		logrus.Debugf("couldn't find refresh token in database, requesting new token (%s)", params.Username)
-		token, err = tr.fetchAndSaveNewPasswordToken(trx, params)
+		token, err = tr.fetchAndSaveNewPasswordToken(trx, params, req.events)
 		if err != nil {
 			return token, errors.WithStack(err)
 		}
@@ -318,7 +318,7 @@ func (tr *TokenRequester) TokenRefreshPassword(req TokenRequest) (*Token, error)
 	if params.CodeVerifier == "" && dbToken.CodeVerifier != "" {
 		params.CodeVerifier = dbToken.CodeVerifier
 	}
-	token, err = tr.fetchAndSaveNewPasswordToken(trx, params)
+	token, err = tr.fetchAndSaveNewPasswordToken(trx, params, req.events)
 	if err != nil {
 		// check if we could find the token from the request in the db
 		if dbToken.ID != 0 {
@@ -361,7 +361,7 @@ func (tr *TokenRequester) TokenRefreshClientCredentials(req TokenRequest) (*Toke
 	if errors.Cause(err) == sql.ErrNoRows {
 		// no results in db: request new token
 		logrus.Debugf("couldn't find access token in database, requesting new token")
-		token, err = tr.fetchAndSaveNewClientCredentialsToken(trx, params)
+		token, err = tr.fetchAndSaveNewClientCredentialsToken(trx, params, req.events)
 		if err != nil {
 			return token, errors.WithStack(err)
 		}
@@ -395,7 +395,7 @@ func (tr *TokenRequester) TokenRefreshClientCredentials(req TokenRequest) (*Toke
 	if params.CodeVerifier == "" && dbToken.CodeVerifier != "" {
 		params.CodeVerifier = dbToken.CodeVerifier
 	}
-	token, err = tr.fetchAndSaveNewClientCredentialsToken(trx, params)
+	token, err = tr.fetchAndSaveNewClientCredentialsToken(trx, params, req.events)
 	if err != nil {
 		// check if we could find the token from the request in the db
 		if dbToken.ID != 0 {
@@ -418,20 +418,24 @@ func (tr *TokenRequester) Stop() {
 	// ??
 }
 
-func (tr *TokenRequester) Request(params providers.TokenRequestParams) (*Token, error) {
-	request := tr.NewTokenRequest(params)
+func (tr *TokenRequester) Request(params providers.TokenRequestParams, events *GrafanaEvents) (*Token, error) {
+	request := tr.NewTokenRequest(params, events)
 	tr.requests <- request
 
 	// block on both channels
+	// this must keep waiting until the worker is done: the worker writes to
+	// events and the caller sends them to grafana after this returns. Returning
+	// early (e.g. on a timeout) would cause a data race on events.
 	result := <-request.result
 	close(request.result)
 	return result.token, errors.WithStack(result.err)
 }
 
-func (tr *TokenRequester) NewTokenRequest(params providers.TokenRequestParams) TokenRequest {
+func (tr *TokenRequester) NewTokenRequest(params providers.TokenRequestParams, events *GrafanaEvents) TokenRequest {
 	return TokenRequest{
 		params: params,
 		result: make(chan TokenRequestResult, 1),
+		events: events,
 	}
 }
 
@@ -561,7 +565,7 @@ func (tr *TokenRequester) DBTokenToOauth2Token(dbToken *mysql.OauthToken) (*Toke
 	return token, errors.WithStack(err)
 }
 
-func (tr *TokenRequester) SaveAuthorizationToken(db mysql.DB, token *Token, params providers.TokenRequestParams) (mysql.OauthToken, error) {
+func (tr *TokenRequester) SaveAuthorizationToken(db mysql.DB, token *Token, params providers.TokenRequestParams, events *GrafanaEvents) (mysql.OauthToken, error) {
 	// @TODO: How to handle this better?
 	// - remove the checking of ErrNoRows
 
@@ -613,6 +617,10 @@ func (tr *TokenRequester) SaveAuthorizationToken(db mysql.DB, token *Token, para
 		token.Expiry = time.Now().Add(time.Duration(secs) * time.Second)
 	}
 
+	isNew := dbToken.ID == 0
+	prevRefreshTokenHash := dbToken.RefreshTokenHash.String()
+	prevAccessTokenHash := dbToken.AccessTokenHash.String()
+
 	// update only changes
 	dbToken.RefreshToken = types.OptionallyEncryptedString(token.RefreshToken)
 	dbToken.RefreshTokenHash = mysql.NewRefreshTokenHash(dbToken.ClientID, token.RefreshToken)
@@ -620,10 +628,16 @@ func (tr *TokenRequester) SaveAuthorizationToken(db mysql.DB, token *Token, para
 	dbToken.AccessTokenHash = mysql.NewAccessTokenHash(dbToken.ClientID, token.AccessToken)
 	dbToken.ExpiresAt = sql.NullTime{Time: token.Expiry, Valid: true}
 	dbToken.UpdatedAt = time.Now()
-	return *dbToken, dbToken.Save(context.Background(), db)
+	err = dbToken.Save(context.Background(), db)
+	if err == nil {
+		events.QueueTokenSavedEvent(*dbToken, isNew,
+			dbToken.RefreshTokenHash.String() != prevRefreshTokenHash,
+			dbToken.AccessTokenHash.String() != prevAccessTokenHash)
+	}
+	return *dbToken, err
 }
 
-func (tr *TokenRequester) SavePasswordToken(db mysql.DB, token *Token, params providers.TokenRequestParams) (mysql.OauthToken, error) {
+func (tr *TokenRequester) SavePasswordToken(db mysql.DB, token *Token, params providers.TokenRequestParams, events *GrafanaEvents) (mysql.OauthToken, error) {
 	// @TODO: How to handle this better?
 	// - remove the checking of ErrNoRows
 
@@ -674,6 +688,10 @@ func (tr *TokenRequester) SavePasswordToken(db mysql.DB, token *Token, params pr
 		token.Expiry = time.Now().Add(time.Duration(secs) * time.Second)
 	}
 
+	isNew := dbToken.ID == 0
+	prevRefreshTokenHash := dbToken.RefreshTokenHash.String()
+	prevAccessTokenHash := dbToken.AccessTokenHash.String()
+
 	// update only changes
 	dbToken.RefreshToken = types.OptionallyEncryptedString(token.RefreshToken)
 	dbToken.RefreshTokenHash = mysql.NewRefreshTokenHash(dbToken.ClientID, token.RefreshToken)
@@ -681,10 +699,16 @@ func (tr *TokenRequester) SavePasswordToken(db mysql.DB, token *Token, params pr
 	dbToken.AccessTokenHash = mysql.NewAccessTokenHash(dbToken.ClientID, token.AccessToken)
 	dbToken.ExpiresAt = sql.NullTime{Time: token.Expiry, Valid: true}
 	dbToken.UpdatedAt = time.Now()
-	return *dbToken, dbToken.Save(context.Background(), db)
+	err = dbToken.Save(context.Background(), db)
+	if err == nil {
+		events.QueueTokenSavedEvent(*dbToken, isNew,
+			dbToken.RefreshTokenHash.String() != prevRefreshTokenHash,
+			dbToken.AccessTokenHash.String() != prevAccessTokenHash)
+	}
+	return *dbToken, err
 }
 
-func (tr *TokenRequester) SaveClientCredentialsToken(db mysql.DB, token *Token, params providers.TokenRequestParams) (mysql.OauthToken, error) {
+func (tr *TokenRequester) SaveClientCredentialsToken(db mysql.DB, token *Token, params providers.TokenRequestParams, events *GrafanaEvents) (mysql.OauthToken, error) {
 	// @TODO: How to handle this better?
 	// - remove the checking of ErrNoRows
 
@@ -729,6 +753,10 @@ func (tr *TokenRequester) SaveClientCredentialsToken(db mysql.DB, token *Token, 
 		token.Expiry = time.Now().Add(time.Duration(secs) * time.Second)
 	}
 
+	isNew := dbToken.ID == 0
+	prevRefreshTokenHash := dbToken.RefreshTokenHash.String()
+	prevAccessTokenHash := dbToken.AccessTokenHash.String()
+
 	// update only changes
 	dbToken.RefreshToken = types.OptionallyEncryptedString(token.RefreshToken)
 	dbToken.RefreshTokenHash = mysql.NewRefreshTokenHash(dbToken.ClientID, token.RefreshToken)
@@ -736,7 +764,13 @@ func (tr *TokenRequester) SaveClientCredentialsToken(db mysql.DB, token *Token, 
 	dbToken.AccessTokenHash = mysql.NewAccessTokenHash(dbToken.ClientID, token.AccessToken)
 	dbToken.ExpiresAt = sql.NullTime{Time: token.Expiry, Valid: true}
 	dbToken.UpdatedAt = time.Now()
-	return *dbToken, dbToken.Save(context.Background(), db)
+	err = dbToken.Save(context.Background(), db)
+	if err == nil {
+		events.QueueTokenSavedEvent(*dbToken, isNew,
+			dbToken.RefreshTokenHash.String() != prevRefreshTokenHash,
+			dbToken.AccessTokenHash.String() != prevAccessTokenHash)
+	}
+	return *dbToken, err
 }
 
 func (tr *TokenRequester) handleResults(request TokenRequest, token *Token, err error) {
@@ -747,7 +781,7 @@ func (tr *TokenRequester) handleResults(request TokenRequest, token *Token, err 
 	request.result <- result
 }
 
-func (tr *TokenRequester) fetchAndSaveNewAuthorizationToken(db mysql.DB, params providers.TokenRequestParams) (*Token, error) {
+func (tr *TokenRequester) fetchAndSaveNewAuthorizationToken(db mysql.DB, params providers.TokenRequestParams, events *GrafanaEvents) (*Token, error) {
 	t, err := tr.FetchNewTokenAuthorizationCode(params)
 	token := &Token{Token: t, Raw: map[string]json.RawMessage{}}
 	if err != nil {
@@ -756,7 +790,7 @@ func (tr *TokenRequester) fetchAndSaveNewAuthorizationToken(db mysql.DB, params 
 	}
 
 	logrus.Debugf("saving new token to database (%s)", params.RefreshToken)
-	dbToken, err := tr.SaveAuthorizationToken(db, token, params)
+	dbToken, err := tr.SaveAuthorizationToken(db, token, params, events)
 	if err != nil {
 		e := errors.Wrapf(err, "something went wrong saving a new token to the database (%s): %s", params.RefreshToken, err)
 		return token, e
@@ -771,7 +805,7 @@ func (tr *TokenRequester) fetchAndSaveNewAuthorizationToken(db mysql.DB, params 
 	return token, nil
 }
 
-func (tr *TokenRequester) fetchAndSaveNewPasswordToken(db mysql.DB, params providers.TokenRequestParams) (*Token, error) {
+func (tr *TokenRequester) fetchAndSaveNewPasswordToken(db mysql.DB, params providers.TokenRequestParams, events *GrafanaEvents) (*Token, error) {
 	t, err := tr.FetchNewTokenPassword(params)
 	token := &Token{Token: t, Raw: map[string]json.RawMessage{}}
 	if err != nil {
@@ -780,7 +814,7 @@ func (tr *TokenRequester) fetchAndSaveNewPasswordToken(db mysql.DB, params provi
 	}
 
 	logrus.Debugf("saving new token to database (%s)", params.Username)
-	_, err = tr.SavePasswordToken(db, token, params)
+	_, err = tr.SavePasswordToken(db, token, params, events)
 	if err != nil {
 		e := errors.Wrapf(err, "something went wrong saving a new token to the database (%s): %s", params.Username, err)
 		return token, e
@@ -789,7 +823,7 @@ func (tr *TokenRequester) fetchAndSaveNewPasswordToken(db mysql.DB, params provi
 	return token, nil
 }
 
-func (tr *TokenRequester) fetchAndSaveNewClientCredentialsToken(db mysql.DB, params providers.TokenRequestParams) (*Token, error) {
+func (tr *TokenRequester) fetchAndSaveNewClientCredentialsToken(db mysql.DB, params providers.TokenRequestParams, events *GrafanaEvents) (*Token, error) {
 	t, err := tr.FetchNewTokenClientCredentials(params)
 	token := &Token{Token: t, Raw: map[string]json.RawMessage{}}
 	if err != nil {
@@ -798,7 +832,7 @@ func (tr *TokenRequester) fetchAndSaveNewClientCredentialsToken(db mysql.DB, par
 	}
 
 	logrus.Debugf("saving new token to database (%s)", token.AccessToken)
-	_, err = tr.SaveClientCredentialsToken(db, token, params)
+	_, err = tr.SaveClientCredentialsToken(db, token, params, events)
 	if err != nil {
 		e := errors.Wrapf(err, "something went wrong saving a new token to the database (%s): %s", token.AccessToken, err)
 		return token, e
@@ -808,6 +842,7 @@ func (tr *TokenRequester) fetchAndSaveNewClientCredentialsToken(db mysql.DB, par
 }
 
 type TokenRequest struct {
+	events *GrafanaEvents
 	params providers.TokenRequestParams
 	result chan TokenRequestResult
 }

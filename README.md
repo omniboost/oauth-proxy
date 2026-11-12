@@ -46,3 +46,14 @@ calls to the original token endpoint.
 ```
 go get github.com/omniboost/oauth-proxy/bin/oauth-proxy
 ```
+
+## Grafana events
+
+Request logs and token-saved events are buffered and sent to Loki in a single
+push at the end of each token request, before the handler returns. This makes
+sure they're not lost when Lambda freezes the execution environment after the
+response.
+
+Each request owns its own buffer; events are never shared between requests.
+Buffering does not perform network I/O; sending the batch at the end of the
+handler waits for Loki, with a 5-second timeout.

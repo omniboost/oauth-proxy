@@ -116,7 +116,7 @@ func (s *Server) NewRouter() *http.ServeMux {
 	r := http.NewServeMux()
 
 	for _, prov := range s.providers {
-		r.Handle(prov.Route(), s.logToGrafana(s.NewProviderTokenHandler(prov)))
+		r.Handle(prov.Route(), s.NewProviderTokenHandler(prov))
 
 		if i, ok := prov.(providers.RevokeProvider); ok {
 			logrus.Debugf("Adding revoke route for provider %s", prov.Name())
@@ -274,7 +274,7 @@ func (s *Server) NewProviderTokenHandler(provider providers.Provider) http.Handl
 	//  	client_secret: "n3G7KAhcv8OH",
 	// }
 
-	return func(w http.ResponseWriter, r *http.Request) {
+	return s.logToGrafana(func(w http.ResponseWriter, r *http.Request, events *GrafanaEvents) {
 		defer r.Body.Close()
 
 		// Get the Lambda runtime context (aws-lambda-go/lambdacontext)
@@ -325,7 +325,7 @@ func (s *Server) NewProviderTokenHandler(provider providers.Provider) http.Handl
 		// Update: can't do that because I don't have access to oauth2.Token.raw
 		// Only Token.Extra(string)
 
-		token, err := s.RequestToken(provider, trp)
+		token, err := s.RequestToken(provider, trp, events)
 		if err != nil {
 			sentry.CaptureException(err)
 			s.ErrorResponse(w, err)
@@ -358,7 +358,7 @@ func (s *Server) NewProviderTokenHandler(provider providers.Provider) http.Handl
 		for _, s := range strings.Split(buf.String(), "\r\n") {
 			logrus.Debug(s)
 		}
-	}
+	})
 }
 
 func (s *Server) NewProviderRevokeHandler(provider providers.RevokeProvider) http.HandlerFunc {
@@ -443,6 +443,10 @@ func (s *Server) NewClient() *http.Client {
 	}
 }
 
+func (s *Server) SetClient(client *http.Client) {
+	s.client = client
+}
+
 func (s *Server) ErrorResponse(w http.ResponseWriter, err error) {
 	w.WriteHeader(http.StatusBadRequest)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -469,7 +473,7 @@ func (s *Server) ErrorResponse(w http.ResponseWriter, err error) {
 	}
 }
 
-func (s *Server) RequestToken(provider providers.Provider, params providers.TokenRequestParams) (*Token, error) {
+func (s *Server) RequestToken(provider providers.Provider, params providers.TokenRequestParams, events *GrafanaEvents) (*Token, error) {
 	tr, ok := s.tokenRequesters[provider.Name()]
 	if !ok {
 		// this should not happen because all tokenrequesters are loaded when
@@ -477,7 +481,7 @@ func (s *Server) RequestToken(provider providers.Provider, params providers.Toke
 		return nil, errors.Errorf("Token requester for provider %s doesn't exist", provider.Name())
 	}
 
-	return tr.Request(params)
+	return tr.Request(params, events)
 }
 
 func (s *Server) RevokeToken(provider providers.RevokeProvider, params TokenRevokeParams) (*http.Response, error) {
