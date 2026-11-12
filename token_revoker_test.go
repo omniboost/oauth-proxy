@@ -171,3 +171,75 @@ func TestRevokeClientCredentialsInForm(t *testing.T) {
 		t.Error("expected refresh token to be marked as revoked in db")
 	}
 }
+
+func TestRevokeWithoutTokenTypeHint(t *testing.T) {
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer provider.Close()
+	prov := RevokeTestProvider{revokeURL: provider.URL}
+
+	tr := oauthproxy.NewTokenRequester(dbh, prov)
+	save := func(clientID string) int {
+		t.Helper()
+		params := providers.TokenRequestParams{
+			ClientID:     clientID,
+			ClientSecret: clientID + "_SECRET",
+			RefreshToken: clientID + "_RT",
+		}
+		dbToken, err := tr.SaveAuthorizationToken(dbh, &oauthproxy.Token{
+			Token: &oauth2.Token{
+				AccessToken:  clientID + "_AT",
+				RefreshToken: clientID + "_RT",
+				Expiry:       time.Now().Add(time.Hour),
+				TokenType:    "Bearer",
+			},
+			Raw: map[string]json.RawMessage{},
+		}, params, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return dbToken.ID
+	}
+	revoke := func(clientID, token string) {
+		t.Helper()
+		form := url.Values{"token": {token}, "client_id": {clientID}, "client_secret": {clientID + "_SECRET"}}
+		r := httptest.NewRequest(http.MethodPost, prov.RevokeRoute(), strings.NewReader(form.Encode()))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rrp, err := (&oauthproxy.Server{}).GetTokenRevokeParamsFromRequest(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rv := oauthproxy.NewTokenRevoker(dbh, prov)
+		rv.Start()
+		resp, err := rv.Revoke(rrp)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+	}
+	row := func(id int) *mysql.OauthToken {
+		t.Helper()
+		row, err := mysql.OauthTokenByID(context.Background(), dbh, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return row
+	}
+
+	// refresh token without hint
+	id := save("NOHINT_REFRESH")
+	revoke("NOHINT_REFRESH", "NOHINT_REFRESH_RT")
+	if !row(id).RefreshTokenExpiresAt.Valid {
+		t.Error("expected refresh token to be marked as revoked in db")
+	}
+
+	// access token without hint
+	id = save("NOHINT_ACCESS")
+	revoke("NOHINT_ACCESS", "NOHINT_ACCESS_AT")
+	r := row(id)
+	if r.RefreshTokenExpiresAt.Valid {
+		t.Error("expected refresh token not to be revoked when revoking an access token")
+	}
+	if !r.ExpiresAt.Valid || r.ExpiresAt.Time.After(time.Now()) {
+		t.Errorf("expected access token to be expired, expires at %v", r.ExpiresAt.Time)
+	}
+}

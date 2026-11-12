@@ -25,12 +25,13 @@ func TestRevokeHandlerPassesProviderStatusCode(t *testing.T) {
 	defer provider.Close()
 	prov := revokeHandlerTestProvider{revokeURL: provider.URL}
 
-	// no token_type_hint: the revoker doesn't touch the database
+	// access token rejected by the provider: the revoker doesn't touch the
+	// database
 	rv := NewTokenRevoker(nil, prov)
 	rv.Start()
 	s := &Server{tokenRevokers: map[string]*TokenRevoker{prov.Name(): rv}}
 
-	form := url.Values{"token": {"TOKEN"}}
+	form := url.Values{"token": {"TOKEN"}, "token_type_hint": {"access_token"}}
 	r := httptest.NewRequest(http.MethodPost, prov.RevokeRoute(), strings.NewReader(form.Encode()))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w := httptest.NewRecorder()
