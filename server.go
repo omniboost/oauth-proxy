@@ -280,12 +280,6 @@ func (s *Server) NewProviderTokenHandler(provider providers.Provider) http.Handl
 		// every request gets its own sentry hub so tags don't leak into other
 		// (concurrent or subsequent) requests
 		hub := sentry.CurrentHub().Clone()
-		captureException := func(err error) {
-			hub.CaptureException(err)
-			// on Lambda the execution environment is frozen after the response
-			// is returned, so the event has to be sent before the handler returns
-			hub.Flush(2 * time.Second)
-		}
 
 		// Get the Lambda runtime context (aws-lambda-go/lambdacontext)
 		if lc, ok := core.GetRuntimeContextFromContextV2(r.Context()); ok && lc != nil {
@@ -304,14 +298,14 @@ func (s *Server) NewProviderTokenHandler(provider providers.Provider) http.Handl
 			logrus.Debug(s)
 		}
 		if err != nil {
-			captureException(err)
+			captureException(hub, err)
 			s.ErrorResponse(w, err)
 			return
 		}
 
 		trp, err := s.GetTokenRequestParamsFromRequest(r)
 		if err != nil {
-			captureException(err)
+			captureException(hub, err)
 			s.ErrorResponse(w, err)
 			return
 		}
@@ -335,7 +329,7 @@ func (s *Server) NewProviderTokenHandler(provider providers.Provider) http.Handl
 
 		token, err := s.RequestToken(provider, trp, events, hub)
 		if err != nil {
-			captureException(err)
+			captureException(hub, err)
 			s.ErrorResponse(w, err)
 			return
 		}
@@ -376,8 +370,12 @@ func (s *Server) NewProviderRevokeHandler(provider providers.RevokeProvider) htt
 	// - send request to provider endpoint
 	// - return response
 
-	return func(w http.ResponseWriter, r *http.Request) {
+	return s.logToGrafana(func(w http.ResponseWriter, r *http.Request, _ *GrafanaEvents) {
 		defer r.Body.Close()
+
+		// every request gets its own sentry hub so tags don't leak into other
+		// (concurrent or subsequent) requests
+		hub := sentry.CurrentHub().Clone()
 
 		// Get the Lambda runtime context (aws-lambda-go/lambdacontext)
 		if lc, ok := core.GetRuntimeContextFromContextV2(r.Context()); ok && lc != nil {
@@ -394,19 +392,30 @@ func (s *Server) NewProviderRevokeHandler(provider providers.RevokeProvider) htt
 		logrus.Debug("Server revoke incoming request:")
 		logrus.Debug(string(b))
 		if err != nil {
+			captureException(hub, err)
 			s.ErrorResponse(w, err)
 			return
 		}
 
 		rrp, err := s.GetTokenRevokeParamsFromRequest(r)
 		if err != nil {
+			captureException(hub, err)
 			s.ErrorResponse(w, err)
 			return
 		}
 
+		// never send the token or client secret to sentry: the TokenID tag
+		// identifies the database row instead
+		hub.ConfigureScope(func(scope *sentry.Scope) {
+			scope.SetTag("Provider", provider.Name())
+			scope.SetTag("ClientID", rrp.ClientID)
+			scope.SetTag("TokenTypeHint", rrp.TokenTypeHint)
+		})
+
 		logrus.Debug("Revoking token")
-		resp, err := s.RevokeToken(provider, rrp)
+		resp, err := s.RevokeToken(provider, rrp, hub)
 		if err != nil {
+			captureException(hub, err)
 			s.ErrorResponse(w, err)
 			return
 		}
@@ -432,7 +441,7 @@ func (s *Server) NewProviderRevokeHandler(provider providers.RevokeProvider) htt
 		// an error can't be returned to the client anymore
 		_, err = io.Copy(rsp, resp.Body)
 		if err != nil {
-			logrus.Error("error sending revoke response to client: ", err)
+			captureException(hub, errors.Wrap(err, "error sending revoke response to client"))
 			return
 		}
 
@@ -440,7 +449,7 @@ func (s *Server) NewProviderRevokeHandler(provider providers.RevokeProvider) htt
 		for s := range strings.SplitSeq(buf.String(), "\r\n") {
 			logrus.Debug(s)
 		}
-	}
+	})
 }
 
 func (s *Server) NewClient() *http.Client {
@@ -494,7 +503,7 @@ func (s *Server) RequestToken(provider providers.Provider, params providers.Toke
 	return tr.Request(params, events, hub)
 }
 
-func (s *Server) RevokeToken(provider providers.RevokeProvider, params TokenRevokeParams) (*http.Response, error) {
+func (s *Server) RevokeToken(provider providers.RevokeProvider, params TokenRevokeParams, hub *sentry.Hub) (*http.Response, error) {
 	tr, ok := s.tokenRevokers[provider.Name()]
 	if !ok {
 		// this should not happen because all tokenrequesters are loaded when
@@ -502,7 +511,7 @@ func (s *Server) RevokeToken(provider providers.RevokeProvider, params TokenRevo
 		return nil, errors.Errorf("Token requester for provider %s doesn't exist", provider.Name())
 	}
 
-	return tr.Revoke(params)
+	return tr.Revoke(params, hub)
 }
 
 func (s *Server) GetTokenRequestParamsFromRequest(r *http.Request) (providers.TokenRequestParams, error) {

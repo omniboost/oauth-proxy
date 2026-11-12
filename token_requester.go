@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -141,7 +140,7 @@ func (tr *TokenRequester) CodeExchange(req TokenRequest) (*Token, error) {
 	if err != nil {
 		return token, err
 	}
-	req.setSentryTokenID(dbToken.ID)
+	setSentryTokenID(req.hub, dbToken.ID)
 
 	// return the immutable original refresh token to the caller instead of
 	// the current refresh token. The current refresh token changes on every
@@ -200,7 +199,7 @@ func (tr *TokenRequester) TokenRefreshAuthorizationCode(req TokenRequest) (*Toke
 		return token, e
 	} else {
 		logrus.Debugf("found existing token in database (%s)", params.RefreshToken)
-		req.setSentryTokenID(dbToken.ID)
+		setSentryTokenID(req.hub, dbToken.ID)
 	}
 
 	// existing token, check if still valid
@@ -299,7 +298,7 @@ func (tr *TokenRequester) TokenRefreshPassword(req TokenRequest) (*Token, error)
 		return token, e
 	} else {
 		logrus.Debugf("found existing token in database (%s)", params.RefreshToken)
-		req.setSentryTokenID(dbToken.ID)
+		setSentryTokenID(req.hub, dbToken.ID)
 	}
 
 	// existing token, check if still valid
@@ -378,7 +377,7 @@ func (tr *TokenRequester) TokenRefreshClientCredentials(req TokenRequest) (*Toke
 		return token, e
 	} else {
 		logrus.Debugf("found existing token in database (%s)", dbToken.AccessToken)
-		req.setSentryTokenID(dbToken.ID)
+		setSentryTokenID(req.hub, dbToken.ID)
 	}
 
 	// existing token, check if still valid
@@ -853,17 +852,6 @@ type TokenRequest struct {
 	hub    *sentry.Hub
 	params providers.TokenRequestParams
 	result chan TokenRequestResult
-}
-
-// setSentryTokenID tags the request's sentry events with the database id of
-// the token, so errors can be traced to a row without sending secrets
-func (req TokenRequest) setSentryTokenID(id int) {
-	if req.hub == nil || id == 0 {
-		return
-	}
-	req.hub.ConfigureScope(func(scope *sentry.Scope) {
-		scope.SetTag("TokenID", strconv.Itoa(id))
-	})
 }
 
 type TokenRequestResult struct {

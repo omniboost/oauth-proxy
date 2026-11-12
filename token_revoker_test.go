@@ -6,10 +6,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/getsentry/sentry-go"
 	oauthproxy "github.com/omniboost/oauth-proxy"
 	"github.com/omniboost/oauth-proxy/mysql"
 	"github.com/omniboost/oauth-proxy/providers"
@@ -69,6 +71,13 @@ func TestRevokeRotatedRefreshToken(t *testing.T) {
 	form := url.Values{"token": {"ORIGINAL_RT"}, "token_type_hint": {"refresh_token"}}
 	r := httptest.NewRequest(http.MethodPost, prov.RevokeRoute(), strings.NewReader(form.Encode()))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	transport := &sentry.MockTransport{}
+	client, err := sentry.NewClient(sentry.ClientOptions{Dsn: "https://public@sentry.invalid/1", Transport: transport})
+	if err != nil {
+		t.Fatal(err)
+	}
+	hub := sentry.NewHub(client, sentry.NewScope())
+
 	rv := oauthproxy.NewTokenRevoker(dbh, prov)
 	rv.Start()
 	resp, err := rv.Revoke(oauthproxy.TokenRevokeParams{
@@ -77,11 +86,17 @@ func TestRevokeRotatedRefreshToken(t *testing.T) {
 		Token:         "ORIGINAL_RT",
 		TokenTypeHint: "refresh_token",
 		Request:       r,
-	})
+	}, hub)
 	if err != nil {
 		t.Fatal(err)
 	}
 	resp.Body.Close()
+
+	// the worker tags the request's sentry events with the token row
+	hub.CaptureMessage("test")
+	if got, want := transport.Events()[0].Tags["TokenID"], strconv.Itoa(dbToken.ID); got != want {
+		t.Errorf("expected TokenID tag %s, got %q", want, got)
+	}
 
 	select {
 	case got := <-revoked:
@@ -148,7 +163,7 @@ func TestRevokeClientCredentialsInForm(t *testing.T) {
 	}
 	rv := oauthproxy.NewTokenRevoker(dbh, prov)
 	rv.Start()
-	resp, err := rv.Revoke(rrp)
+	resp, err := rv.Revoke(rrp, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,7 +225,7 @@ func TestRevokeWithoutTokenTypeHint(t *testing.T) {
 		}
 		rv := oauthproxy.NewTokenRevoker(dbh, prov)
 		rv.Start()
-		resp, err := rv.Revoke(rrp)
+		resp, err := rv.Revoke(rrp, nil)
 		if err != nil {
 			t.Fatal(err)
 		}

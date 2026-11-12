@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/getsentry/sentry-go"
 	"github.com/omniboost/oauth-proxy/mysql"
 	"github.com/omniboost/oauth-proxy/providers"
 	"github.com/pkg/errors"
@@ -68,11 +69,13 @@ func (tr *TokenRevoker) Listen() {
 	}
 }
 
-func (tr *TokenRevoker) Revoke(params TokenRevokeParams) (*http.Response, error) {
-	request := tr.NewTokenRevoke(params)
+func (tr *TokenRevoker) Revoke(params TokenRevokeParams, hub *sentry.Hub) (*http.Response, error) {
+	request := tr.NewTokenRevoke(params, hub)
 	tr.requests <- request
 
 	// block on both channels
+	// this must keep waiting until the worker is done: the worker writes to
+	// hub and the caller sends its events after this returns
 	result := <-request.result
 	close(request.result)
 	return result.response, errors.WithStack(result.err)
@@ -106,6 +109,9 @@ func (tr *TokenRevoker) revoke(request RevokeRequest) (*http.Response, error) {
 		}
 		if dbToken != nil && dbToken.RefreshToken != "" {
 			token = string(dbToken.RefreshToken)
+		}
+		if dbToken != nil {
+			setSentryTokenID(request.hub, dbToken.ID)
 		}
 	}
 
@@ -174,6 +180,7 @@ func (tr *TokenRevoker) handleResults(request RevokeRequest, resp *http.Response
 }
 
 type RevokeRequest struct {
+	hub    *sentry.Hub
 	params TokenRevokeParams
 	result chan TokenRevokeResult
 }
@@ -192,8 +199,9 @@ type TokenRevokeParams struct {
 	Request       *http.Request
 }
 
-func (tr *TokenRevoker) NewTokenRevoke(params TokenRevokeParams) RevokeRequest {
+func (tr *TokenRevoker) NewTokenRevoke(params TokenRevokeParams, hub *sentry.Hub) RevokeRequest {
 	return RevokeRequest{
+		hub:    hub,
 		params: params,
 		result: make(chan TokenRevokeResult, 1),
 	}
