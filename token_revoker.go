@@ -85,8 +85,24 @@ func (tr *TokenRevoker) revoke(request RevokeRequest) (*http.Response, error) {
 	client.Transport = rt
 	ctx := context.WithValue(context.TODO(), oauth2.HTTPClient, client)
 
+	// callers only know the original refresh token (CSI-2200), while the
+	// provider only accepts the current one after a rotation: look up the
+	// row by either and revoke its current refresh token at the provider
+	token := request.params.Token
+	var dbToken *mysql.OauthToken
+	if request.params.TokenTypeHint == "refresh_token" && token != "" {
+		var err error
+		dbToken, err = mysql.OauthTokenByAppClientIDClientSecretRefreshTokenOrOriginalRefreshToken(ctx, tr.db, tr.provider.Name(), request.params.ClientID, request.params.ClientSecret, token)
+		if err != nil && errors.Cause(err) != sql.ErrNoRows {
+			return nil, errors.WithStack(err)
+		}
+		if dbToken != nil && dbToken.RefreshToken != "" {
+			token = string(dbToken.RefreshToken)
+		}
+	}
+
 	data := url.Values{
-		"token":           []string{request.params.Token},
+		"token":           []string{token},
 		"token_type_hint": []string{request.params.TokenTypeHint},
 	}
 
@@ -107,11 +123,10 @@ func (tr *TokenRevoker) revoke(request RevokeRequest) (*http.Response, error) {
 
 	if resp.StatusCode == http.StatusOK && request.params.Token != "" {
 		if request.params.TokenTypeHint == "refresh_token" {
-			token, err := mysql.OauthTokenByAppClientIDRefreshToken(ctx, tr.db, tr.provider.Name(), request.params.ClientID, request.params.Token)
-			if token != nil {
+			if dbToken != nil {
 				expiresAt := time.Now()
-				token.RefreshTokenExpiresAt = sql.NullTime{Time: expiresAt, Valid: true}
-				err = token.Save(ctx, tr.db)
+				dbToken.RefreshTokenExpiresAt = sql.NullTime{Time: expiresAt, Valid: true}
+				err = dbToken.Save(ctx, tr.db)
 				if err != nil {
 					return nil, errors.WithStack(err)
 				}
