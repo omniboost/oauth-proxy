@@ -232,8 +232,9 @@ func TestTokenRefreshParallel(t *testing.T) {
 	wg.Add(parallel)
 	for i, request := range requests {
 		go func(request oauthproxy.TokenRequest) {
+			defer wg.Done()
+			var err error
 			tokens[i], err = tr.TokenRefresh(request)
-			wg.Done()
 			if err != nil {
 				t.Errorf("%+v", err)
 			}
